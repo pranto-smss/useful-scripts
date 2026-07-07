@@ -1,6 +1,8 @@
 # Media Compressor
 
-Compress a video to a precise target file size using 2-pass ffmpeg encoding.
+**Ship that clip.** Crush any video down to a target file size in one drag-and-drop.  
+Discord's 25 MB wall? Twitter's upload limit? Highlight reel too thicc?  
+This thing uses 2-pass ffmpeg sorcery to squeeze every last megabyte — no quality lottery, no guesswork, just drop it and go.
 
 ## Requirements
 
@@ -15,13 +17,13 @@ Install ffmpeg via your package manager:
 ## Usage
 
 ```bash
-python media_compressor.py <input_file> <target_size_in_mb>
+python media_compressor.py
 ```
 
-**Example:**
-```bash
-python media_compressor.py gameplay.mp4 25
-```
+The script launches an interactive prompt:
+1. **Drag & drop** your video file onto the terminal window, then press Enter.
+2. **Enter** the desired target file size in MB (e.g. `25`).
+3. The script probes the video, calculates the optimal bitrate, and runs a 2-pass ffmpeg encode.
 
 The output file is saved alongside the input as `<original>_compressed.mp4`.
 
@@ -33,5 +35,5 @@ The output file is saved alongside the input as `<original>_compressed.mp4`.
 
 ## Caveats
 
-- Very small target sizes for long videos will produce poor quality. The script enforces a minimum video bitrate floor of 100 kbps.
+- Very small target sizes for long videos will produce poor quality. The script enforces a minimum video bitrate floor of 100 kbps and warns you if the target is too aggressive.
 - Log files (`ffmpeg2pass-0.log`, `ffmpeg2pass-0.stats`) are cleaned up automatically after encoding.

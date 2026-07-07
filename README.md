@@ -16,8 +16,8 @@
 
 | Script | Language | Description | Usage |
 |--------|----------|-------------|-------|
-| [Facebook Auto Friend Request](javascript/facebook-auto-friend-request/bookmarklet.js) | JavaScript (Bookmarklet) | Clicks every "Add Friend" button on the current Facebook page with a randomized 4–9s delay between each click to appear more human-like. | Paste into browser console or run as a bookmarklet on `facebook.com` |
-| [Media Compressor](python/media_compressor/media_compressor.py) | Python 3 | Compresses a video to a target file size using 2-pass ffmpeg encoding with automatic bitrate calculation. | `python media_compressor.py input.mp4 25` |
+| [Facebook Auto Friend Request](javascript/facebook-auto-friend-request/bookmarklet.js) | JavaScript (Bookmarklet) | Growth-hack your network on autopilot. Clicks every "Add Friend" button with randomized 4–9s human-mimic delays — hard to detect, easy to scale. Turn a tab into a lead-gen machine. | Paste into browser console on `facebook.com` |
+| [Media Compressor](python/media_compressor/media_compressor.py) | Python 3 | Ship that clip. Crush any video down to a target size in one drag-and-drop — Discord's 25 MB cap? Twitter upload limits? Highlight reel too chonky? This thing slims it down with surgical 2-pass precision. | `python media_compressor.py` |
 
 ---
 
