@@ -16,8 +16,9 @@
 
 | Script | Language | Description | Usage |
 |--------|----------|-------------|-------|
-| [Facebook Auto Friend Request](javascript/facebook-auto-friend-request/bookmarklet.js) | JavaScript (Bookmarklet) | Growth-hack your network on autopilot. Clicks every "Add Friend" button with randomized 4–9s human-mimic delays — hard to detect, easy to scale. Turn a tab into a lead-gen machine. | Paste into browser console on `facebook.com` |
+| [Facebook Auto Friend Request](javascript/facebook-auto-friend-request/facebook-auto-friend-request.js) | JavaScript (Bookmarklet) | Growth-hack your network on autopilot. Clicks every "Add Friend" button with randomized 4–9s human-mimic delays — hard to detect, easy to scale. Turn a tab into a lead-gen machine. | Paste into browser console on `facebook.com` |
 | [Media Compressor](python/media_compressor/media_compressor.py) | Python 3 | Ship that clip. Crush any video down to a target size in one drag-and-drop — Discord's 25 MB cap? Twitter upload limits? Highlight reel too chonky? This thing slims it down with surgical 2-pass precision. | `python media_compressor.py` |
+| [Dynamic Media Strip](javascript/dynamic-media-strip/dynamic-media-strip.js) | JavaScript (Console Snippet) | ⚡ **Scroll, Spot, Save.** Auto-harvests every pristine high-res image as you scroll Pinterest & Instagram — no extensions, no logins, no alt-tabbing. A slick live gallery strip docks to your sidebar with hover-to-zoom previews and one-click saves. Infinite scroll? It watches your back. | Paste into console on `pinterest.com` or `instagram.com` |
 
 ---
 
