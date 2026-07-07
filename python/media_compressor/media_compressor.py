@@ -4,13 +4,47 @@
 # Language:      Python 3
 # Description:   Compress a video to a target file size using 2-pass ffmpeg encoding
 # Usage:         python media_compressor.py  (interactive — drag & drop or type path)
-# Depends:       ffmpeg, ffprobe (must be on PATH)
+# Depends:       ffmpeg, ffprobe (auto-installed via winget on Windows if missing)
 # -------------------------------------------------
 
 import sys
 import subprocess
 import json
+import os
+import shutil
 from pathlib import Path
+
+def ensure_ffmpeg():
+    """Check if ffmpeg/ffprobe are on PATH; on Windows, auto-install via winget if missing."""
+    if shutil.which("ffmpeg") and shutil.which("ffprobe"):
+        return
+
+    if os.name != "nt":
+        print("[-] ffmpeg and ffprobe are required.")
+        print("    macOS: brew install ffmpeg")
+        print("    Linux: sudo apt install ffmpeg")
+        sys.exit(1)
+
+    print("\n[!] ffmpeg not found. Installing FFmpeg Essentials via winget...")
+    try:
+        subprocess.run(
+            ["winget", "install", "Gyan.FFmpeg", "--accept-package-agreements", "--accept-source-agreements"],
+            check=True
+        )
+    except subprocess.CalledProcessError:
+        print("[-] Winget install failed. Install ffmpeg manually:")
+        print("    winget install Gyan.FFmpeg")
+        sys.exit(1)
+
+    # Winget installs to %ProgramFiles%\FFmpeg\bin — add to PATH for this session
+    ffmpeg_bin = Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "FFmpeg" / "bin"
+    if (ffmpeg_bin / "ffmpeg.exe").exists() and (ffmpeg_bin / "ffprobe.exe").exists():
+        os.environ["PATH"] = str(ffmpeg_bin) + os.pathsep + os.environ.get("PATH", "")
+        print("[+] FFmpeg installed and loaded into PATH.\n")
+        return
+
+    print("[-] ffmpeg was installed but could not be found in PATH. Restart the terminal.")
+    sys.exit(1)
 
 def get_video_duration(input_path: Path) -> float:
     """Uses ffprobe to extract the exact duration of the video in seconds."""
@@ -91,6 +125,8 @@ def compress_video(input_path: Path, target_size_mb: float):
         print("\n[-] Error: FFmpeg execution finished but no file was generated.")
 
 def main():
+    ensure_ffmpeg()
+
     print("=" * 55)
     print("      🎬 UNIVERSAL INTERACTIVE MEDIA COMPRESSOR 🎬      ")
     print("=" * 55)

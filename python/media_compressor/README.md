@@ -7,10 +7,10 @@ This thing uses 2-pass ffmpeg sorcery to squeeze every last megabyte — no qual
 ## Requirements
 
 - Python 3.6+
-- `ffmpeg` and `ffprobe` on your system PATH
 
-Install ffmpeg via your package manager:
-- **Windows:** `winget install ffmpeg` or download from [ffmpeg.org](https://ffmpeg.org/)
+**ffmpeg & ffprobe** — on Windows, the script **auto-installs them via winget** if they're missing.  
+Otherwise, grab them manually:
+- **Windows:** `winget install Gyan.FFmpeg`
 - **macOS:** `brew install ffmpeg`
 - **Linux:** `sudo apt install ffmpeg`
 
