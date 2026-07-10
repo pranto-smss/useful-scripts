@@ -38,22 +38,27 @@
         text-align: center;
     }
     .toolbar {
+        display: table;
         width: 100%;
         margin-bottom: 12px;
-        overflow: hidden;
+        border-spacing: 6px;
     }
-    .toolbar button {
-        float: left;
-        width: 32%;
-        margin-right: 2%;
-        padding: 8px 0;
+    .toolbar-row {
+        display: table-row;
+    }
+    .toolbar-cell {
+        display: table-cell;
+        width: 33%;
+    }
+    button {
+        width: 100%;
+        padding: 8px 12px;
         border: none;
         border-radius: 5px;
         font-size: 12px;
         font-weight: 500;
         cursor: pointer;
     }
-    .toolbar button:last-child { margin-right: 0; }
     .btn-primary { background: #00d4ff; color: #1a1a2e; }
     .btn-primary:hover { background: #00b8d4; }
     .btn-success { background: #00e676; color: #1a1a2e; }
@@ -159,9 +164,17 @@
     <h1>WiFi Manager</h1>
 
     <div class="toolbar">
-        <button class="btn-primary" onclick="refreshNetworks()">Refresh</button>
-        <button class="btn-success" id="btnShowPassword" onclick="togglePassword()" disabled>Show Password</button>
-        <button class="btn-success" id="btnConnect" onclick="toggleConnect()" disabled>Connect</button>
+        <div class="toolbar-row">
+            <div class="toolbar-cell">
+                <button class="btn-primary" onclick="refreshNetworks()">Refresh</button>
+            </div>
+            <div class="toolbar-cell">
+                <button class="btn-success" id="btnShowPassword" onclick="togglePassword()" disabled>Show Password</button>
+            </div>
+            <div class="toolbar-cell">
+                <button class="btn-success" id="btnConnect" onclick="toggleConnect()" disabled>Connect</button>
+            </div>
+        </div>
     </div>
 
     <div class="network-list scrollbar" id="networkList">
