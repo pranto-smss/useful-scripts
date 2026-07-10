@@ -277,9 +277,9 @@ function renderNetworks() {
                 listHtml += '<div class="password-label">Password</div>';
                 listHtml += '<div class="password-row">';
                 listHtml += '<div class="password-value" id="passwordValue">Loading...</div>';
-                listHtml += '<div class="password-copy" onclick="event.stopPropagation(); copyPassword()">Copy</div>';
+                listHtml += '<div class="password-copy" onclick="window.event.cancelBubble=true; copyPassword()">Copy</div>';
                 listHtml += '</div>';
-                listHtml += '<div class="password-forget" onclick="event.stopPropagation(); forgetNetwork()">Forget this network</div>';
+                listHtml += '<div class="password-forget" onclick="window.event.cancelBubble=true; forgetNetwork()">Forget this network</div>';
                 listHtml += '</div>';
             }
 
