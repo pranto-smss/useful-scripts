@@ -17,22 +17,16 @@
     VERSION="1.0"
     SCROLL="no"
     WIDTH="540"
-    HEIGHT="800"
+    HEIGHT="960"
 />
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body {
-        height: 100%;
-        overflow: hidden;
-    }
     body {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         background: #1a1a2e;
         color: #e0e0e0;
-        padding: 12px;
+        padding: 15px;
         font-size: 13px;
-        display: table;
-        width: 100%;
     }
     h1 {
         font-size: 18px;
@@ -73,13 +67,9 @@
     .network-list {
         border: 1px solid #333;
         border-radius: 5px;
+        height: 320px;
         overflow-y: auto;
         background: #0f0f23;
-        position: absolute;
-        top: 95px;
-        bottom: 35px;
-        left: 12px;
-        right: 12px;
     }
     .network-item {
         padding: 10px 12px;
@@ -110,8 +100,8 @@
         margin-top: 2px;
     }
     .network-password {
-        margin-top: 10px;
-        padding: 12px;
+        margin-top: 8px;
+        padding: 8px 10px;
         background: #16213e;
         border-radius: 4px;
     }
@@ -125,7 +115,7 @@
     }
     .password-value {
         font-family: 'Consolas', monospace;
-        font-size: 16px;
+        font-size: 14px;
         color: #00e676;
         letter-spacing: 1px;
         word-break: break-all;
@@ -150,10 +140,7 @@
     }
     .password-forget:hover { text-decoration: underline; }
     .status-bar {
-        position: absolute;
-        bottom: 12px;
-        left: 12px;
-        right: 12px;
+        margin-top: 10px;
         padding: 6px 10px;
         background: #0f0f23;
         border-radius: 4px;
@@ -458,7 +445,7 @@ function escapeHtml(text) {
 }
 
 window.onload = function() {
-    window.resizeTo(540, 800);
+    window.resizeTo(540, 960);
     refreshNetworks();
 };
 </script>
