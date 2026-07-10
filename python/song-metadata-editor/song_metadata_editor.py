@@ -355,19 +355,55 @@ def write_tags(filepath, metadata):
 
 COVERART_BASE = "https://coverartarchive.org/release"
 
+def _caa_get(url, timeout=30):
+    """GET with retry for Cover Art Archive (can be slow)."""
+    for attempt in range(3):
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None
+            if e.code == 429:
+                time.sleep(3)
+                continue
+            return None
+        except Exception:
+            if attempt < 2:
+                time.sleep(2)
+                continue
+            return None
+    return None
+
 def fetch_album_art(release_mbid):
     """Fetch album art from Cover Art Archive. Returns raw image bytes or None."""
     if not release_mbid:
         return None
-    url = f"{COVERART_BASE}/{release_mbid}/front-500"
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+
+    # Step 1: Get the JSON manifest to find the front image
+    json_url = f"{COVERART_BASE}/{release_mbid}"
+    json_data = _caa_get(json_url)
+    if not json_data:
+        return None
+
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            return resp.read()
-    except urllib.error.HTTPError:
+        manifest = json.loads(json_data.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
         return None
-    except Exception:
+
+    images = manifest.get("images", [])
+    front_url = None
+    for img in images:
+        if img.get("front"):
+            front_url = img.get("image")
+            break
+    if not front_url:
         return None
+
+    # Step 2: Download the actual image
+    time.sleep(1)
+    return _caa_get(front_url)
 
 def write_art(filepath, art_data):
     """Embed album art into an audio file based on its format."""
@@ -393,13 +429,17 @@ def write_art(filepath, art_data):
 
 def write_art_mp3(filepath, art_data):
     from mutagen.id3 import ID3, APIC, ID3NoHeaderError
-    from mutagen.mp3 import MP3
     try:
         tags = ID3(filepath)
     except ID3NoHeaderError:
         tags = ID3()
-    audio = MP3(filepath)
-    mime = audio.mime[0] if audio.mime else "image/jpeg"
+    # Detect mime from magic bytes
+    if art_data[:3] == b'\xff\xd8\xff':
+        mime = "image/jpeg"
+    elif art_data[:8] == b'\x89PNG\r\n\x1a\n':
+        mime = "image/png"
+    else:
+        mime = "image/jpeg"
     tags["APIC"] = APIC(encoding=3, mime=mime, type=3, desc="Cover", data=art_data)
     tags.save(filepath)
     return True
