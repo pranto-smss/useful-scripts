@@ -38,21 +38,18 @@
         text-align: center;
     }
     .toolbar {
+        display: table;
         width: 100%;
         margin-bottom: 12px;
-        overflow: hidden;
+        border-spacing: 6px;
     }
     .toolbar-row {
-        width: 100%;
-        overflow: hidden;
+        display: table-row;
     }
     .toolbar-cell {
-        float: left;
-        width: 33.33%;
-        padding: 0 3px;
+        display: table-cell;
+        width: 33%;
     }
-    .toolbar-cell:first-child { padding-left: 0; }
-    .toolbar-cell:last-child { padding-right: 0; }
     button {
         width: 100%;
         padding: 8px 12px;
