@@ -46,6 +46,7 @@ function Read-YesNo($message, $defaultYes = $true) {
 }
 
 function Format-FileSize($bytes) {
+    if ($null -eq $bytes -or $bytes -eq 0) { return "0 B" }
     if ($bytes -ge 1GB) { return "{0:N2} GB" -f ($bytes / 1GB) }
     if ($bytes -ge 1MB) { return "{0:N2} MB" -f ($bytes / 1MB) }
     if ($bytes -ge 1KB) { return "{0:N2} KB" -f ($bytes / 1KB) }
@@ -61,8 +62,16 @@ function Get-FolderSize($path) {
 function Get-TargetFiles($path, $daysOld) {
     if (-not (Test-Path $path)) { return @() }
     $cutoff = (Get-Date).AddDays(-$daysOld)
-    return Get-ChildItem -Path $path -File -Recurse -Force -ErrorAction SilentlyContinue |
-        Where-Object { $_.LastWriteTime -lt $cutoff }
+    $files = @()
+    try {
+        $files = @(Get-ChildItem -Path $path -File -Recurse -Force -ErrorAction Stop |
+            Where-Object { $_.LastWriteTime -lt $cutoff })
+    } catch {
+        # Recursive scan failed (permission denied on subfolders) — fall back to top-level only
+        $files = @(Get-ChildItem -Path $path -File -Force -ErrorAction SilentlyContinue |
+            Where-Object { $_.LastWriteTime -lt $cutoff })
+    }
+    return $files
 }
 
 function Get-CleanupTargets($mode) {
@@ -169,9 +178,13 @@ foreach ($target in $targets) {
         continue
     }
 
+    # Show total file count first so user knows the folder isn't empty
+    $allCount = (Get-ChildItem -Path $target.Path -File -Recurse -Force -ErrorAction SilentlyContinue | Measure-Object).Count
+    Write-Host "  $($target.Name): $allCount file(s) total" -ForegroundColor DarkGray
+
     $files = Get-TargetFiles -path $target.Path -daysOld $daysOld
     if ($target.Filter) {
-        $files = $files | Where-Object { $_.Name -like $target.Filter }
+        $files = @($files | Where-Object { $_.Name -like $target.Filter })
     }
 
     $totalSize = ($files | Measure-Object -Property Length -Sum).Sum
@@ -187,9 +200,9 @@ foreach ($target in $targets) {
 
     $sizeStr = Format-FileSize $totalSize
     if ($count -gt 0) {
-        Write-Host "  $($target.Name): $count file(s) — $sizeStr" -ForegroundColor Green
+        Write-Host "    -> $count file(s) older than $daysOld day(s) — $sizeStr" -ForegroundColor Green
     } else {
-        Write-Host "  $($target.Name): clean" -ForegroundColor DarkGray
+        Write-Host "    -> all files are newer than $daysOld day(s)" -ForegroundColor DarkGray
     }
 }
 
