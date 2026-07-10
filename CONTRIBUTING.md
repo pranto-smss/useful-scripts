@@ -21,7 +21,12 @@ Welcome! 🎉 We're excited you're here. This repo exists because people like yo
    // Author:        Your Name (optional)
    // -------------------------------------------------
    ```
-5. **Update the README table** — add your script to the "Script Directory" table in [`README.md`](README.md) with its name, language, description, and a one-liner usage example.
+5. **Add a sub-README** in your script's folder (`README.md`). This is **required** — not optional. It should include:
+   - What the script does (2-3 sentences)
+   - Usage examples
+   - Any flags or options
+   - Example output if helpful
+6. **Update the root README** — add your script to the "Script Directory" table in [`README.md`](README.md) with its name, language, description, and a one-liner usage example.
 6. **Commit**: `git commit -m "Add my-script-name"`
 7. **Push**: `git push origin add/my-script-name`
 8. **Open a Pull Request** on GitHub.
@@ -33,7 +38,8 @@ Welcome! 🎉 We're excited you're here. This repo exists because people like yo
 | Requirement | Why it matters |
 |-------------|----------------|
 | **Plug-and-play** | User should only need to run the file — no pip installs, npm init, or manual config beyond what's in the script header. |
-| **Self-documenting** | Include a comment header (see template above) and inline comments for non-obvious steps. |
+| **Self-documenting** | Include a comment header (see template above), inline comments for non-obvious steps, and a **sub-README** in the script folder. |
+| **Sub-README required** | Every script folder must have a `README.md` explaining what it does, how to use it, and any options. No exceptions. |
 | **Safe defaults** | If your script modifies data, include a dry-run mode or a confirmation prompt as the default. |
 | **Cross-platform** | Prefer Python 3, Node.js, or Bash. If your script is platform-specific, note it in the header. |
 | **No secrets** | Never commit API keys, tokens, or passwords. Use environment variables or a `.env.example` file. |
