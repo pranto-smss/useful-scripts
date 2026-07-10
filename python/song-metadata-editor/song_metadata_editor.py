@@ -11,10 +11,11 @@ import os
 import re
 import json
 import time
+import shutil
+import argparse
 import urllib.request
 import urllib.parse
 import subprocess
-import importlib
 
 # ===========================================================================
 # DEPENDENCY CHECK
@@ -141,7 +142,7 @@ def unique_filepath(folder, name, ext):
         n += 1
     return os.path.join(folder, f"{name} ({n}){ext}")
 
-def rename_file(old_path, metadata):
+def rename_file(old_path, metadata, dry_run=False):
     """Rename file to 'Artist - Title.ext'. Returns new path or old path on failure."""
     artist = sanitize_filename(metadata.get("artist", "Unknown"))
     title = sanitize_filename(metadata.get("title", "Unknown"))
@@ -153,12 +154,29 @@ def rename_file(old_path, metadata):
     new_name = f"{artist} - {title}"
     new_path = unique_filepath(folder, new_name, ext)
 
+    if dry_run:
+        if new_path != old_path:
+            print(f"  [dry-run] Would rename: {os.path.basename(new_path)}")
+        return old_path
+
     try:
         os.rename(old_path, new_path)
         return new_path
     except OSError as e:
         print(f"  [!] Rename failed: {e}")
         return old_path
+
+def backup_file(filepath):
+    """Create a .bak copy of a file. Returns True on success."""
+    bak_path = filepath + ".bak"
+    if os.path.exists(bak_path):
+        return True
+    try:
+        shutil.copy2(filepath, bak_path)
+        return True
+    except OSError as e:
+        print(f"  [!] Backup failed: {e}")
+        return False
 
 # ===========================================================================
 # DISPLAY
@@ -437,20 +455,27 @@ def pick_folder():
     except Exception:
         return None
 
-def scan_audio_files(folder):
-    """Find all supported audio files in a folder (non-recursive)."""
+def scan_audio_files(folder, recursive=False):
+    """Find all supported audio files in a folder."""
     files = []
-    for entry in sorted(os.listdir(folder)):
-        full = os.path.join(folder, entry)
-        if os.path.isfile(full) and os.path.splitext(entry)[1].lower() in SUPPORTED_EXTENSIONS:
-            files.append(full)
+    if recursive:
+        for dirpath, _, filenames in os.walk(folder):
+            for entry in sorted(filenames):
+                full = os.path.join(dirpath, entry)
+                if os.path.isfile(full) and os.path.splitext(entry)[1].lower() in SUPPORTED_EXTENSIONS:
+                    files.append(full)
+    else:
+        for entry in sorted(os.listdir(folder)):
+            full = os.path.join(folder, entry)
+            if os.path.isfile(full) and os.path.splitext(entry)[1].lower() in SUPPORTED_EXTENSIONS:
+                files.append(full)
     return files
 
 # ===========================================================================
 # SONG PROCESSING
 # ===========================================================================
 
-def process_song(filepath, index, total):
+def process_song(filepath, index, total, dry_run=False, backup=False, auto=False):
     """Process a single song file: search, pick, fetch, write."""
     filename = os.path.basename(filepath)
     print(f"\n[{index}/{total}] Processing: {filename}")
@@ -464,6 +489,9 @@ def process_song(filepath, index, total):
 
         if not results:
             print(f"  No results found for \"{query}\".")
+            if auto:
+                print(f"  Skipped (auto mode): {filename}")
+                return False, filepath
             choice = input("  Enter a different search term, or 'skip': ").strip()
             if choice.lower() == "skip":
                 print(f"  Skipped: {filename}")
@@ -475,6 +503,16 @@ def process_song(filepath, index, total):
             print("  Empty input. Skipping.")
             print(f"  Skipped: {filename}")
             return False, filepath
+
+        # Auto mode: pick first result
+        if auto:
+            selected = results[0]
+            title = selected.get("title", "?")
+            artist = "Unknown"
+            if selected.get("artist-credit"):
+                artist = "".join(ac.get("name", "") for ac in selected["artist-credit"])
+            print(f"  Auto-picked: {artist} - {title}")
+            break
 
         # Show results
         show_results(results)
@@ -502,14 +540,28 @@ def process_song(filepath, index, total):
     # Extract metadata
     metadata = extract_metadata(details)
 
+    artist = metadata.get("artist", "Unknown")
+    title = metadata.get("title", "Unknown")
+    album = metadata.get("album", "")
+    year = metadata.get("year", "")
+    extra = f" ({album}, {year})" if album else ""
+
+    # Dry-run: show what would happen
+    if dry_run:
+        print(f"  [dry-run] Would write: {artist} - {title}{extra}")
+        new_path = rename_file(filepath, metadata, dry_run=True)
+        return True, filepath
+
+    # Backup before writing
+    if backup:
+        if backup_file(filepath):
+            print(f"  Backed up: {filename}.bak")
+        else:
+            print(f"  [!] Continuing without backup...")
+
     # Write tags
     try:
         write_tags(filepath, metadata)
-        artist = metadata.get("artist", "Unknown")
-        title = metadata.get("title", "Unknown")
-        album = metadata.get("album", "")
-        year = metadata.get("year", "")
-        extra = f" ({album}, {year})" if album else ""
         print(f"  Written: {artist} - {title}{extra}")
 
         # Rename file
@@ -526,38 +578,72 @@ def process_song(filepath, index, total):
 # ===========================================================================
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Edit audio file metadata using MusicBrainz data.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Examples:\n"
+               "  python song_metadata_editor.py                     # Interactive mode\n"
+               "  python song_metadata_editor.py --folder C:\\Music   # Scan folder\n"
+               "  python song_metadata_editor.py --folder Music --recursive --backup\n"
+               "  python song_metadata_editor.py --file song.mp3 --dry-run\n"
+               "  python song_metadata_editor.py --folder Music --auto  # No prompts",
+    )
+    parser.add_argument("--file", help="Single audio file to process")
+    parser.add_argument("--folder", help="Folder to scan for audio files")
+    parser.add_argument("--recursive", action="store_true", help="Scan subfolders recursively")
+    parser.add_argument("--dry-run", action="store_true", help="Show what would change without writing")
+    parser.add_argument("--backup", action="store_true", help="Create .bak copies before modifying")
+    parser.add_argument("--auto", action="store_true", help="Auto-pick first match (no interactive prompts)")
+    args = parser.parse_args()
+
     print("=== Song Metadata Editor ===\n")
-    print("Edits audio file metadata using data from MusicBrainz.")
-    print("Supported formats: MP3, FLAC, OGG, M4A, AAC, WMA\n")
+    if args.dry_run:
+        print("  ** DRY RUN -- no files will be modified **\n")
 
-    # Choose mode
-    mode_input = input("Choose Edit Mode:\n  1 = Single File\n  2 = Multiple Files\nChoose [1]: ").strip()
-    if not mode_input:
-        mode_input = "1"
-
-    if mode_input == "1":
-        # Single file
-        print("\nSelect an audio file...")
-        filepath = pick_file()
-        if not filepath:
-            print("No file selected. Exiting.")
-            sys.exit(0)
+    # Determine files to process
+    if args.file:
+        filepath = os.path.abspath(args.file)
+        if not os.path.isfile(filepath):
+            print(f"File not found: {filepath}")
+            sys.exit(1)
         files = [filepath]
-    elif mode_input == "2":
-        # Multiple files
-        print("\nSelect a folder containing audio files...")
-        folder = pick_folder()
-        if not folder:
-            print("No folder selected. Exiting.")
-            sys.exit(0)
-        files = scan_audio_files(folder)
+    elif args.folder:
+        folder = os.path.abspath(args.folder)
+        if not os.path.isdir(folder):
+            print(f"Folder not found: {folder}")
+            sys.exit(1)
+        files = scan_audio_files(folder, recursive=args.recursive)
         if not files:
             print(f"No audio files found in: {folder}")
             sys.exit(0)
-        print(f"Found {len(files)} audio file(s).")
+        print(f"Found {len(files)} audio file(s).\n")
     else:
-        print("Invalid choice. Exiting.")
-        sys.exit(1)
+        # Interactive mode (default)
+        mode_input = input("Choose Edit Mode:\n  1 = Single File\n  2 = Multiple Files\nChoose [1]: ").strip()
+        if not mode_input:
+            mode_input = "1"
+
+        if mode_input == "1":
+            print("\nSelect an audio file...")
+            filepath = pick_file()
+            if not filepath:
+                print("No file selected. Exiting.")
+                sys.exit(0)
+            files = [filepath]
+        elif mode_input == "2":
+            print("\nSelect a folder containing audio files...")
+            folder = pick_folder()
+            if not folder:
+                print("No folder selected. Exiting.")
+                sys.exit(0)
+            files = scan_audio_files(folder)
+            if not files:
+                print(f"No audio files found in: {folder}")
+                sys.exit(0)
+            print(f"Found {len(files)} audio file(s).\n")
+        else:
+            print("Invalid choice. Exiting.")
+            sys.exit(1)
 
     # Process each song
     updated = 0
@@ -565,7 +651,12 @@ def main():
 
     try:
         for i, filepath in enumerate(files, 1):
-            success, new_path = process_song(filepath, i, len(files))
+            success, new_path = process_song(
+                filepath, i, len(files),
+                dry_run=args.dry_run,
+                backup=args.backup,
+                auto=args.auto,
+            )
             files[i - 1] = new_path
             if success:
                 updated += 1
@@ -578,9 +669,12 @@ def main():
     print(f"\nDone. {updated} of {len(files)} songs updated.", end="")
     if skipped > 0:
         print(f" {skipped} skipped.", end="")
+    if args.dry_run:
+        print(" (dry run -- nothing modified)", end="")
     print()
 
-    input("\nPress Enter to exit...")
+    if not args.auto:
+        input("\nPress Enter to exit...")
 
 if __name__ == "__main__":
     main()
