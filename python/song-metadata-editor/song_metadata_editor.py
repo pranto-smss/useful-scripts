@@ -1,0 +1,544 @@
+# -------------------------------------------------
+# Script Name:   Song Metadata Editor
+# Language:      Python 3
+# Description:   Edit audio file metadata using MusicBrainz data
+# Usage:         python song_metadata_editor.py
+# Author:        Pranto, SMSS
+# -------------------------------------------------
+
+import sys
+import os
+import re
+import json
+import time
+import urllib.request
+import urllib.parse
+import subprocess
+import importlib
+
+# ===========================================================================
+# DEPENDENCY CHECK
+# ===========================================================================
+
+def ensure_mutagen():
+    """Auto-install mutagen via pip if not present."""
+    try:
+        import mutagen
+        return mutagen
+    except ImportError:
+        pass
+
+    print("[!] mutagen not found. Installing via pip...")
+    try:
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "mutagen", "-q"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError:
+        print("[-] Failed to install mutagen. Run manually:")
+        print("    pip install mutagen")
+        sys.exit(1)
+
+    import mutagen
+    print("[+] mutagen installed.\n")
+    return mutagen
+
+mutagen = ensure_mutagen()
+
+from mutagen.id3 import ID3, TIT2, TPE1, TALB, TRCK, TDRC, TCON, TSRC, ID3NoHeaderError
+from mutagen.flac import FLAC
+from mutagen.oggvorbis import OggVorbis
+from mutagen.mp4 import MP4, MP4Tags
+from mutagen.asf import ASF
+
+SUPPORTED_EXTENSIONS = {".mp3", ".flac", ".ogg", ".m4a", ".aac", ".wma"}
+
+MUSICBRAINZ_BASE = "https://musicbrainz.org/ws/2"
+USER_AGENT = "UsefulScripts-SongMetadataEditor/1.0 (https://github.com/pranto-smss/useful-scripts)"
+
+last_request_time = 0.0
+
+# ===========================================================================
+# RATE-LIMITED HTTP
+# ===========================================================================
+
+def rate_limited_get(url):
+    """GET with enforced 1-second gap between MusicBrainz requests."""
+    global last_request_time
+    elapsed = time.time() - last_request_time
+    if elapsed < 1.0:
+        time.sleep(1.0 - elapsed)
+
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            last_request_time = time.time()
+            return data
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            print("  [!] Rate limited by MusicBrainz. Waiting 3 seconds...")
+            time.sleep(3)
+            last_request_time = time.time()
+            return rate_limited_get(url)
+        print(f"  [!] HTTP error {e.code} from MusicBrainz")
+        last_request_time = time.time()
+        return None
+    except Exception as e:
+        print(f"  [!] Network error: {e}")
+        last_request_time = time.time()
+        return None
+
+# ===========================================================================
+# MUSICBRAINZ API
+# ===========================================================================
+
+def search_musicbrainz(query, limit=5):
+    """Search for recordings by name. Returns list of results."""
+    encoded = urllib.parse.quote(query)
+    url = f"{MUSICBRAINZ_BASE}/recording?query={encoded}&fmt=json&limit={limit}"
+    data = rate_limited_get(url)
+    if not data:
+        return []
+    return data.get("recordings", [])
+
+def get_recording_details(mbid):
+    """Fetch full recording details including artist, releases, tags."""
+    url = f"{MUSICBRAINZ_BASE}/recording/{mbid}?fmt=json&inc=artist-credits+releases+tags+isrcs"
+    return rate_limited_get(url)
+
+# ===========================================================================
+# FILENAME UTILS
+# ===========================================================================
+
+def clean_filename(filename):
+    """Convert a filename into a search query."""
+    name = os.path.splitext(filename)[0]
+    # Replace common separators with spaces
+    name = re.sub(r"[_\-]+", " ", name)
+    # Remove trailing numbers like "(1)", "(2)", "copy"
+    name = re.sub(r"\s*\(\d+\)\s*$", "", name)
+    name = re.sub(r"\s+copy\s*$", "", name, flags=re.IGNORECASE)
+    # Remove leading track numbers like "01.", "01 -"
+    name = re.sub(r"^\d+[\.\-\s]+", "", name)
+    # Collapse multiple spaces
+    name = re.sub(r"\s+", " ", name).strip()
+    return name
+
+# ===========================================================================
+# DISPLAY
+# ===========================================================================
+
+def format_duration(ms):
+    """Convert milliseconds to M:SS format."""
+    if not ms:
+        return "?"
+    seconds = int(ms / 1000)
+    return f"{seconds // 60}:{seconds % 60:02d}"
+
+def show_results(results):
+    """Display search results and let user pick."""
+    if not results:
+        return None
+
+    print()
+    for i, rec in enumerate(results[:5], 1):
+        title = rec.get("title", "Unknown")
+        artist = "Unknown"
+        if rec.get("artist-credit"):
+            artist = "".join(ac.get("name", "") for ac in rec["artist-credit"])
+
+        album = "Unknown"
+        year = "?"
+        if rec.get("releases"):
+            rel = rec["releases"][0]
+            album = rel.get("title", "Unknown")
+            date = rel.get("date", "")
+            if date:
+                year = date[:4]
+
+        duration = format_duration(rec.get("length"))
+
+        print(f"  {i}. {artist} - {title}")
+        print(f"     Album: {album} | Year: {year} | Duration: {duration}")
+
+    print()
+    return True
+
+def pick_match(count):
+    """Prompt user to pick a result, skip, or custom search."""
+    while True:
+        choice = input(f"  Pick a match (1-{count}, 'skip', 'custom'): ").strip().lower()
+
+        if choice == "skip":
+            return "skip", None
+        if choice == "custom":
+            custom = input("  Enter new search term: ").strip()
+            if custom:
+                return "custom", custom
+            print("  Empty input. Try again.")
+            continue
+        if choice.isdigit():
+            idx = int(choice)
+            if 1 <= idx <= count:
+                return "pick", idx - 1
+        print(f"  Invalid input. Enter 1-{count}, 'skip', or 'custom'.")
+
+# ===========================================================================
+# TAG WRITING
+# ===========================================================================
+
+def write_tags_mp3(filepath, metadata):
+    """Write ID3v2.3 tags to an MP3 file."""
+    try:
+        tags = ID3(filepath)
+    except ID3NoHeaderError:
+        tags = ID3()
+
+    tags["TIT2"] = TIT2(encoding=3, text=[metadata.get("title", "")])
+    tags["TPE1"] = TPE1(encoding=3, text=[metadata.get("artist", "")])
+    tags["TALB"] = TALB(encoding=3, text=[metadata.get("album", "")])
+
+    if metadata.get("track"):
+        tags["TRCK"] = TRCK(encoding=3, text=[str(metadata["track"])])
+    if metadata.get("year"):
+        tags["TDRC"] = TDRC(encoding=3, text=[str(metadata["year"])])
+    if metadata.get("genre"):
+        tags["TCON"] = TCON(encoding=3, text=[metadata["genre"]])
+    if metadata.get("isrc"):
+        tags["TSRC"] = TSRC(encoding=3, text=[metadata["isrc"]])
+
+    tags.save(filepath)
+
+def write_tags_flac(filepath, metadata):
+    """Write Vorbis comments to a FLAC file."""
+    audio = FLAC(filepath)
+    audio["TITLE"] = metadata.get("title", "")
+    audio["ARTIST"] = metadata.get("artist", "")
+    audio["ALBUM"] = metadata.get("album", "")
+    if metadata.get("track"):
+        audio["TRACKNUMBER"] = str(metadata["track"])
+    if metadata.get("year"):
+        audio["DATE"] = str(metadata["year"])
+    if metadata.get("genre"):
+        audio["GENRE"] = metadata["genre"]
+    if metadata.get("isrc"):
+        audio["ISRC"] = metadata["isrc"]
+    audio.save()
+
+def write_tags_ogg(filepath, metadata):
+    """Write Vorbis comments to an OGG Vorbis file."""
+    audio = OggVorbis(filepath)
+    audio["TITLE"] = metadata.get("title", "")
+    audio["ARTIST"] = metadata.get("artist", "")
+    audio["ALBUM"] = metadata.get("album", "")
+    if metadata.get("track"):
+        audio["TRACKNUMBER"] = str(metadata["track"])
+    if metadata.get("year"):
+        audio["DATE"] = str(metadata["year"])
+    if metadata.get("genre"):
+        audio["GENRE"] = metadata["genre"]
+    if metadata.get("isrc"):
+        audio["ISRC"] = metadata["isrc"]
+    audio.save()
+
+def write_tags_m4a(filepath, metadata):
+    """Write MP4 atoms to an M4A/AAC file."""
+    audio = MP4(filepath)
+    try:
+        audio.add_tags()
+    except Exception:
+        pass
+    tags = audio.tags
+    tags["\xa9nam"] = [metadata.get("title", "")]
+    tags["\xa9ART"] = [metadata.get("artist", "")]
+    tags["\xa9alb"] = [metadata.get("album", "")]
+    if metadata.get("track"):
+        tags["trkn"] = [(int(metadata["track"]), 0)]
+    if metadata.get("year"):
+        tags["\xa9day"] = [str(metadata["year"])]
+    if metadata.get("genre"):
+        tags["\xa9gen"] = [metadata["genre"]]
+    if metadata.get("isrc"):
+        tags["\xa9cmt"] = [f"ISRC: {metadata['isrc']}"]
+    audio.save()
+
+def write_tags_wma(filepath, metadata):
+    """Write ASF tags to a WMA file."""
+    audio = ASF(filepath)
+    audio["Title"] = [metadata.get("title", "")]
+    audio["Author"] = [metadata.get("artist", "")]
+    audio["WM/AlbumTitle"] = [metadata.get("album", "")]
+    if metadata.get("track"):
+        audio["WM/TrackNumber"] = [str(metadata["track"])]
+    if metadata.get("year"):
+        audio["WM/Year"] = [str(metadata["year"])]
+    if metadata.get("genre"):
+        audio["WM/Genre"] = [metadata["genre"]]
+    if metadata.get("isrc"):
+        audio["WM/ISRC"] = [metadata["isrc"]]
+    audio.save()
+
+def write_tags(filepath, metadata):
+    """Route to the correct tag writer based on file extension."""
+    ext = os.path.splitext(filepath)[1].lower()
+    writers = {
+        ".mp3": write_tags_mp3,
+        ".flac": write_tags_flac,
+        ".ogg": write_tags_ogg,
+        ".m4a": write_tags_m4a,
+        ".aac": write_tags_m4a,
+        ".wma": write_tags_wma,
+    }
+    writer = writers.get(ext)
+    if writer:
+        writer(filepath, metadata)
+        return True
+    return False
+
+# ===========================================================================
+# METADATA EXTRACTION
+# ===========================================================================
+
+def extract_metadata(recording, release=None):
+    """Extract a clean metadata dict from a MusicBrainz recording."""
+    metadata = {
+        "title": recording.get("title", ""),
+        "artist": "",
+        "album": "",
+        "track": None,
+        "year": "",
+        "genre": "",
+        "isrc": "",
+    }
+
+    # Artist from artist-credit
+    if recording.get("artist-credit"):
+        metadata["artist"] = "".join(ac.get("name", "") for ac in recording["artist-credit"])
+
+    # Use provided release or first available
+    if not release and recording.get("releases"):
+        release = recording["releases"][0]
+
+    if release:
+        metadata["album"] = release.get("title", "")
+        date = release.get("date", "")
+        if date:
+            metadata["year"] = date[:4]
+
+        # Track number
+        if release.get("mediums"):
+            medium = release["mediums"][0]
+            if medium.get("tracks"):
+                for track in medium["tracks"]:
+                    if track.get("id") == recording.get("id"):
+                        metadata["track"] = track.get("number", None)
+                        break
+                if metadata["track"] is None and medium["tracks"]:
+                    # Fallback: match by position
+                    for track in medium["tracks"]:
+                        if track.get("title", "").lower() == recording.get("title", "").lower():
+                            metadata["track"] = track.get("number", None)
+                            break
+
+    # ISRC
+    if recording.get("isrcs"):
+        metadata["isrc"] = recording["isrcs"][0]
+
+    # Genre from tags
+    if recording.get("tags"):
+        tags = recording["tags"]
+        if tags:
+            metadata["genre"] = tags[0].get("name", "")
+
+    return metadata
+
+# ===========================================================================
+# FILE/FOLDER PICKERS
+# ===========================================================================
+
+def pick_file():
+    """Open a tkinter file picker for a single audio file."""
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+
+        filetypes = [
+            ("Audio Files", " ".join(f"*{ext}" for ext in SUPPORTED_EXTENSIONS)),
+            ("All Files", "*.*"),
+        ]
+        filepath = filedialog.askopenfilename(
+            title="Select an audio file",
+            filetypes=filetypes,
+        )
+        root.destroy()
+
+        if filepath and os.path.isfile(filepath):
+            return filepath
+        return None
+    except Exception:
+        return None
+
+def pick_folder():
+    """Open a tkinter folder picker."""
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+
+        folder = filedialog.askdirectory(title="Select folder containing audio files")
+        root.destroy()
+
+        if folder and os.path.isdir(folder):
+            return folder
+        return None
+    except Exception:
+        return None
+
+def scan_audio_files(folder):
+    """Find all supported audio files in a folder (non-recursive)."""
+    files = []
+    for entry in sorted(os.listdir(folder)):
+        full = os.path.join(folder, entry)
+        if os.path.isfile(full) and os.path.splitext(entry)[1].lower() in SUPPORTED_EXTENSIONS:
+            files.append(full)
+    return files
+
+# ===========================================================================
+# SONG PROCESSING
+# ===========================================================================
+
+def process_song(filepath, index, total):
+    """Process a single song file: search, pick, fetch, write."""
+    filename = os.path.basename(filepath)
+    print(f"\n[{index}/{total}] Processing: {filename}")
+
+    query = clean_filename(filename)
+    print(f"  Searching MusicBrainz for \"{query}\"...")
+
+    # Search loop (allows custom re-search or skip)
+    while True:
+        results = search_musicbrainz(query)
+
+        if not results:
+            print(f"  No results found for \"{query}\".")
+            choice = input("  Enter a different search term, or 'skip': ").strip()
+            if choice.lower() == "skip":
+                print(f"  Skipped: {filename}")
+                return False
+            if choice:
+                query = choice
+                print(f"  Searching for \"{query}\"...")
+                continue
+            print("  Empty input. Skipping.")
+            print(f"  Skipped: {filename}")
+            return False
+
+        # Show results
+        show_results(results)
+        action, value = pick_match(len(results[:5]))
+
+        if action == "skip":
+            print(f"  Skipped: {filename}")
+            return False
+        elif action == "custom":
+            query = value
+            print(f"  Searching for \"{query}\"...")
+            continue
+        elif action == "pick":
+            selected = results[value]
+            break
+
+    # Fetch full details
+    mbid = selected.get("id")
+    print(f"  Fetching full details...")
+    details = get_recording_details(mbid)
+    if not details:
+        print(f"  [!] Failed to fetch details. Using search result.")
+        details = selected
+
+    # Extract metadata
+    metadata = extract_metadata(details)
+
+    # Write tags
+    try:
+        write_tags(filepath, metadata)
+        artist = metadata.get("artist", "Unknown")
+        title = metadata.get("title", "Unknown")
+        album = metadata.get("album", "")
+        year = metadata.get("year", "")
+        extra = f" ({album}, {year})" if album else ""
+        print(f"  Written: {artist} - {title}{extra}")
+        return True
+    except Exception as e:
+        print(f"  [!] Failed to write tags: {e}")
+        return False
+
+# ===========================================================================
+# MAIN
+# ===========================================================================
+
+def main():
+    print("=== Song Metadata Editor ===\n")
+    print("Edits audio file metadata using data from MusicBrainz.")
+    print("Supported formats: MP3, FLAC, OGG, M4A, AAC, WMA\n")
+
+    # Choose mode
+    mode_input = input("Choose Edit Mode:\n  1 = Single File\n  2 = Multiple Files\nChoose [1]: ").strip()
+    if not mode_input:
+        mode_input = "1"
+
+    if mode_input == "1":
+        # Single file
+        print("\nSelect an audio file...")
+        filepath = pick_file()
+        if not filepath:
+            print("No file selected. Exiting.")
+            sys.exit(0)
+        files = [filepath]
+    elif mode_input == "2":
+        # Multiple files
+        print("\nSelect a folder containing audio files...")
+        folder = pick_folder()
+        if not folder:
+            print("No folder selected. Exiting.")
+            sys.exit(0)
+        files = scan_audio_files(folder)
+        if not files:
+            print(f"No audio files found in: {folder}")
+            sys.exit(0)
+        print(f"Found {len(files)} audio file(s).")
+    else:
+        print("Invalid choice. Exiting.")
+        sys.exit(1)
+
+    # Process each song
+    updated = 0
+    skipped = 0
+
+    try:
+        for i, filepath in enumerate(files, 1):
+            success = process_song(filepath, i, len(files))
+            if success:
+                updated += 1
+            else:
+                skipped += 1
+    except KeyboardInterrupt:
+        print("\n\nInterrupted by user.")
+
+    # Summary
+    print(f"\nDone. {updated} of {len(files)} songs updated.", end="")
+    if skipped > 0:
+        print(f" {skipped} skipped.", end="")
+    print()
+
+if __name__ == "__main__":
+    main()

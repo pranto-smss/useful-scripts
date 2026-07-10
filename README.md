@@ -21,6 +21,7 @@
 | [Temp Cleaner](powershell/temp-cleaner/temp-cleaner.ps1) | PowerShell | Clean Windows temp files, caches, and crash dumps. Preview before deleting, age-based filter to keep recent files, skips locked files automatically. No admin needed for user temp. | `./temp-cleaner.ps1` |
 | [WiFi Password Viewer](vbs/wifi-password-viewer/wifi-password-viewer.vbs) | VBScript | Show all saved WiFi passwords in one click. Zero dependencies -- uses built-in netsh. | `wifi-password-viewer.vbs` |
 | [WiFi Manager](hta/wifi-manager/wifi-manager.hta) | HTA | GUI WiFi manager. View, connect, disconnect, forget saved networks. Copy/export passwords. | `wifi-manager.hta` |
+| [Song Metadata Editor](python/song-metadata-editor/song_metadata_editor.py) | Python 3 | Edit audio file metadata (title, artist, album, year, genre, ISRC) using MusicBrainz. Single file or batch mode. | `song_metadata_editor.py` |
 
 ---
 
