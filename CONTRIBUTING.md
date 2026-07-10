@@ -11,15 +11,15 @@ Welcome! 🎉 We're excited you're here. This repo exists because people like yo
 3. **Add your script** in the right language folder (e.g. `python/`, `javascript/`, `bash/`).
    - Give it **its own subdirectory** (e.g. `python/my-script/`). Every script gets a folder — this is where the sub-README lives.
    - Single-file scripts still go in their own folder (e.g. `python/my-script/my-script.py`).
-4. **Add a comment header** at the top of your script:
-   ```javascript
-   // -------------------------------------------------
-   // Script Name:   My Script
-   // Language:      JavaScript
-   // Description:   What does this do in one line?
-   // Usage:         node my-script.js <arg1> <arg2>
-   // Author:        Your Name (optional)
-   // -------------------------------------------------
+4. **Add a comment header** at the top of your script (example below — adjust comment style for your language):
+   ```
+   # -------------------------------------------------
+   # Script Name:   My Script
+   # Language:      Python 3
+   # Description:   What does this do in one line?
+   # Usage:         python my-script.py <arg1> <arg2>
+   # Author:        Your Name (optional)
+   # -------------------------------------------------
    ```
 5. **Add a sub-README** in your script's folder (`README.md`). This is **required** — not optional. It should include:
    - What the script does (2-3 sentences)

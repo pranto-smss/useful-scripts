@@ -8,7 +8,7 @@ This thing uses 2-pass ffmpeg sorcery to squeeze every last megabyte — no qual
 
 - Python 3.6+
 
-**ffmpeg & ffprobe** — on Windows, the script **auto-installs them via winget** if they're missing.  
+**ffmpeg & ffprobe** — on Windows, the script **auto-installs them via winget** if they're missing (other OS: install manually, see below).  
 Otherwise, grab them manually:
 - **Windows:** `winget install Gyan.FFmpeg`
 - **macOS:** `brew install ffmpeg`

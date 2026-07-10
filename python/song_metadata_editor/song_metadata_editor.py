@@ -1,7 +1,7 @@
 # -------------------------------------------------
 # Script Name:   Song Metadata Editor
 # Language:      Python 3
-# Description:   Edit audio file metadata using MusicBrainz data
+# Description:   Edit audio file metadata via MusicBrainz; fetches album art, renames files
 # Usage:         python song_metadata_editor.py
 # Author:        Pranto, SMSS
 # -------------------------------------------------

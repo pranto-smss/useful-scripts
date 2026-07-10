@@ -4,7 +4,6 @@
 # Language:      Python 3
 # Description:   Compress a video to a target file size using 2-pass ffmpeg encoding
 # Usage:         python media_compressor.py  (interactive — drag & drop or type path)
-# Depends:       ffmpeg, ffprobe (auto-installed via winget on Windows if missing)
 # Author:        Pranto, SMSS
 # -------------------------------------------------
 
