@@ -623,7 +623,7 @@ def scan_audio_files(folder, recursive=False):
 # SONG PROCESSING
 # ===========================================================================
 
-def process_song(filepath, index, total, dry_run=False, backup=False, auto=False):
+def process_song(filepath, index, total, dry_run=False, backup=False, auto=False, no_art=False):
     """Process a single song file: search, pick, fetch, write."""
     filename = os.path.basename(filepath)
     print(f"\n[{index}/{total}] Processing: {filename}")
@@ -697,7 +697,7 @@ def process_song(filepath, index, total, dry_run=False, backup=False, auto=False
     # Dry-run: show what would happen
     if dry_run:
         print(f"  [dry-run] Would write: {artist} - {title}{extra}")
-        if metadata.get("release_mbid"):
+        if metadata.get("release_mbid") and not no_art:
             print(f"  [dry-run] Would fetch album art from Cover Art Archive")
         new_path = rename_file(filepath, metadata, dry_run=True)
         return True, filepath
@@ -715,13 +715,14 @@ def process_song(filepath, index, total, dry_run=False, backup=False, auto=False
         print(f"  Written: {artist} - {title}{extra}")
 
         # Fetch and embed album art
-        print(f"  Fetching album art...")
-        art_data = fetch_album_art(metadata.get("release_mbid", ""))
-        if art_data:
-            write_art(filepath, art_data)
-            print(f"  Album art embedded.")
-        else:
-            print(f"  No album art found.")
+        if not no_art:
+            print(f"  [{index}/{total}] Fetching album art...")
+            art_data = fetch_album_art(metadata.get("release_mbid", ""))
+            if art_data:
+                write_art(filepath, art_data)
+                print(f"  Album art embedded.")
+            else:
+                print(f"  No album art found.")
 
         # Rename file
         new_path = rename_file(filepath, metadata)
@@ -745,7 +746,7 @@ def main():
                "  python song_metadata_editor.py --folder C:\\Music   # Scan folder\n"
                "  python song_metadata_editor.py --folder Music --recursive --backup\n"
                "  python song_metadata_editor.py --file song.mp3 --dry-run\n"
-               "  python song_metadata_editor.py --folder Music --auto  # No prompts",
+               "  python song_metadata_editor.py --folder Music --auto --no-art",
     )
     parser.add_argument("--file", help="Single audio file to process")
     parser.add_argument("--folder", help="Folder to scan for audio files")
@@ -753,6 +754,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Show what would change without writing")
     parser.add_argument("--backup", action="store_true", help="Create .bak copies before modifying")
     parser.add_argument("--auto", action="store_true", help="Auto-pick first match (no interactive prompts)")
+    parser.add_argument("--no-art", action="store_true", help="Skip album art embedding")
     args = parser.parse_args()
 
     print("=== Song Metadata Editor ===\n")
@@ -804,6 +806,12 @@ def main():
             print("Invalid choice. Exiting.")
             sys.exit(1)
 
+    # Ask about album art (interactive mode only, unless --no-art)
+    if not args.no_art and not args.file and not args.folder:
+        art_choice = input("Fetch album art from internet? [Y/n]: ").strip().lower()
+        if art_choice in ("n", "no"):
+            args.no_art = True
+
     # Process each song
     updated = 0
     skipped = 0
@@ -815,6 +823,7 @@ def main():
                 dry_run=args.dry_run,
                 backup=args.backup,
                 auto=args.auto,
+                no_art=args.no_art,
             )
             files[i - 1] = new_path
             if success:
