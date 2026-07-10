@@ -16,7 +16,6 @@
     SYSMENU="yes"
     VERSION="1.0"
     SCROLL="no"
-    SINGLEINSTANCE="yes"
     WIDTH="540"
     HEIGHT="960"
 />
@@ -446,6 +445,7 @@ function escapeHtml(text) {
 }
 
 window.onload = function() {
+    window.resizeTo(540, 960);
     refreshNetworks();
 };
 </script>
