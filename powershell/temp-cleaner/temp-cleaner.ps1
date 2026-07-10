@@ -252,7 +252,7 @@ foreach ($file in $allFiles) {
     $size = Format-FileSize $file.Length
     $age = ((Get-Date) - $file.LastWriteTime).Days
     Write-Host "  $size" -NoNewline
-    Write-Host "  ($age days old)  " -ForegroundColor DarkGray -NoNewline
+    Write-Host "  $age days old  " -ForegroundColor DarkGray -NoNewline
     Write-Host $file.FullName -ForegroundColor DarkGray
 }
 
