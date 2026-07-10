@@ -1,0 +1,359 @@
+<html>
+<head>
+<title>WiFi Manager</title>
+<HTA:APPLICATION
+    ID="WiFiManager"
+    APPLICATIONNAME="WiFi Manager"
+    BORDER="thin"
+    BORDERSTYLE="normal"
+    CAPTION="yes"
+    ICON=""
+    MAXIMIZEBUTTON="no"
+    MINIMIZEBUTTON="yes"
+    SHOWINTASKBAR="yes"
+    SINGLEINSTANCE="yes"
+    SYSMENU="yes"
+    VERSION="1.0"
+    SCROLL="no"
+/>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: #1a1a2e;
+        color: #e0e0e0;
+        padding: 15px;
+        font-size: 13px;
+    }
+    h1 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #00d4ff;
+        margin-bottom: 12px;
+        text-align: center;
+    }
+    .toolbar {
+        display: table;
+        width: 100%;
+        margin-bottom: 12px;
+        border-spacing: 6px;
+    }
+    .toolbar-row {
+        display: table-row;
+    }
+    .toolbar-cell {
+        display: table-cell;
+        width: 33%;
+    }
+    button {
+        width: 100%;
+        padding: 8px 12px;
+        border: none;
+        border-radius: 5px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .btn-primary { background: #00d4ff; color: #1a1a2e; }
+    .btn-primary:hover { background: #00b8d4; }
+    .btn-success { background: #00e676; color: #1a1a2e; }
+    .btn-success:hover { background: #00c853; }
+    .btn-danger { background: #ff5252; color: #fff; }
+    .btn-danger:hover { background: #ff1744; }
+    .btn-secondary { background: #444; color: #e0e0e0; }
+    .btn-secondary:hover { background: #555; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .network-list {
+        border: 1px solid #333;
+        border-radius: 5px;
+        height: 280px;
+        overflow-y: auto;
+        background: #0f0f23;
+    }
+    .network-item {
+        padding: 10px 12px;
+        border-bottom: 1px solid #222;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    .network-item:hover { background: #1a1a3e; }
+    .network-item.selected { background: #00d4ff22; border-left: 3px solid #00d4ff; }
+    .network-name {
+        font-weight: 600;
+        font-size: 13px;
+        color: #fff;
+    }
+    .network-auth {
+        font-size: 11px;
+        color: #888;
+        margin-top: 2px;
+    }
+    .password-section {
+        margin-top: 12px;
+        padding: 12px;
+        border: 1px solid #333;
+        border-radius: 5px;
+        background: #0f0f23;
+        display: none;
+    }
+    .password-label {
+        font-size: 11px;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+    }
+    .password-value {
+        font-family: 'Consolas', monospace;
+        font-size: 16px;
+        color: #00e676;
+        letter-spacing: 1px;
+        word-break: break-all;
+        min-height: 24px;
+    }
+    .status-bar {
+        margin-top: 10px;
+        padding: 6px 10px;
+        background: #0f0f23;
+        border-radius: 4px;
+        font-size: 11px;
+        color: #888;
+        text-align: center;
+    }
+    .status-bar.success { color: #00e676; }
+    .status-bar.error { color: #ff5252; }
+    .scrollbar::-webkit-scrollbar { width: 6px; }
+    .scrollbar::-webkit-scrollbar-track { background: #0f0f23; }
+    .scrollbar::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+</style>
+</head>
+<body>
+    <h1>WiFi Manager</h1>
+
+    <div class="toolbar">
+        <div class="toolbar-row">
+            <div class="toolbar-cell">
+                <button class="btn-primary" onclick="refreshNetworks()">Refresh List</button>
+            </div>
+            <div class="toolbar-cell">
+                <button class="btn-success" id="btnShowPassword" onclick="showPassword()" disabled>Show Password</button>
+            </div>
+            <div class="toolbar-cell">
+                <button class="btn-secondary" id="btnCopy" onclick="copyPassword()" disabled>Copy to Clipboard</button>
+            </div>
+        </div>
+        <div class="toolbar-row">
+            <div class="toolbar-cell">
+                <button class="btn-success" id="btnConnect" onclick="connectNetwork()" disabled>Connect</button>
+            </div>
+            <div class="toolbar-cell">
+                <button class="btn-danger" id="btnDisconnect" onclick="disconnectNetwork()" disabled>Disconnect</button>
+            </div>
+            <div class="toolbar-cell">
+                <button class="btn-secondary" id="btnForget" onclick="forgetNetwork()" disabled>Forget Network</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="network-list scrollbar" id="networkList">
+        <div style="padding: 20px; text-align: center; color: #666;">
+            Click "Refresh List" to load saved WiFi networks...
+        </div>
+    </div>
+
+    <div class="password-section" id="passwordSection">
+        <div class="password-label">Password</div>
+        <div class="password-value" id="passwordValue">---</div>
+    </div>
+
+    <div class="status-bar" id="statusBar">Ready</div>
+
+<script language="JavaScript">
+var selectedNetwork = "";
+var currentPassword = "";
+
+function runCommand(cmd) {
+    var shell = new ActiveXObject("WScript.Shell");
+    var exec = shell.Exec("cmd /c " + cmd);
+    var output = "";
+    while (!exec.StdOut.AtEndOfStream) {
+        output += exec.StdOut.Read(1);
+    }
+    return output;
+}
+
+function refreshNetworks() {
+    document.getElementById("statusBar").innerText = "Loading networks...";
+    document.getElementById("statusBar").className = "status-bar";
+
+    var output = runCommand("netsh wlan show profiles");
+    var lines = output.split("\r\n");
+    var networks = [];
+
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].replace(/^\s+/, "");
+        if (line.indexOf("All User Profile") > -1 || line.indexOf("User Profile") > -1) {
+            if (line.indexOf(":") > -1) {
+                var name = line.split(":")[1].replace(/^\s+/, "").replace(/\s+$/, "");
+                if (name !== "") {
+                    networks.push(name);
+                }
+            }
+        }
+    }
+
+    var listHtml = "";
+    if (networks.length === 0) {
+        listHtml = '<div style="padding: 20px; text-align: center; color: #666;">No saved WiFi networks found.</div>';
+    } else {
+        for (var j = 0; j < networks.length; j++) {
+            listHtml += '<div class="network-item" onclick="selectNetwork(this, \'' + escapeHtml(networks[j]) + '\')">';
+            listHtml += '<div class="network-name">' + escapeHtml(networks[j]) + '</div>';
+            listHtml += '<div class="network-auth">Saved network</div>';
+            listHtml += '</div>';
+        }
+    }
+
+    document.getElementById("networkList").innerHTML = listHtml;
+    document.getElementById("statusBar").innerText = "Found " + networks.length + " saved network(s)";
+    document.getElementById("statusBar").className = "status-bar success";
+
+    document.getElementById("passwordSection").style.display = "none";
+    document.getElementById("btnShowPassword").disabled = true;
+    document.getElementById("btnCopy").disabled = true;
+    document.getElementById("btnConnect").disabled = true;
+    document.getElementById("btnDisconnect").disabled = false;
+    document.getElementById("btnForget").disabled = true;
+    selectedNetwork = "";
+    currentPassword = "";
+}
+
+function selectNetwork(element, name) {
+    var items = document.getElementsByClassName("network-item");
+    for (var i = 0; i < items.length; i++) {
+        items[i].className = "network-item";
+    }
+    element.className = "network-item selected";
+    selectedNetwork = name;
+
+    document.getElementById("btnShowPassword").disabled = false;
+    document.getElementById("btnConnect").disabled = false;
+    document.getElementById("btnForget").disabled = false;
+    document.getElementById("passwordSection").style.display = "none";
+    document.getElementById("statusBar").innerText = "Selected: " + name;
+    document.getElementById("statusBar").className = "status-bar";
+}
+
+function showPassword() {
+    if (!selectedNetwork) return;
+
+    document.getElementById("statusBar").innerText = "Loading password...";
+    document.getElementById("statusBar").className = "status-bar";
+
+    var cmd = 'netsh wlan show profile "' + selectedNetwork + '" key=clear';
+    var output = runCommand(cmd);
+    var lines = output.split("\r\n");
+    var password = "";
+
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].replace(/^\s+/, "");
+        if (line.indexOf("Key Content") > -1 && line.indexOf(":") > -1) {
+            password = line.split(":")[1].replace(/^\s+/, "").replace(/\s+$/, "");
+            break;
+        }
+    }
+
+    if (password) {
+        currentPassword = password;
+        document.getElementById("passwordValue").innerText = password;
+        document.getElementById("passwordSection").style.display = "block";
+        document.getElementById("btnCopy").disabled = false;
+        document.getElementById("statusBar").innerText = "Password loaded for: " + selectedNetwork;
+        document.getElementById("statusBar").className = "status-bar success";
+    } else {
+        currentPassword = "";
+        document.getElementById("passwordValue").innerText = "(open network or no password saved)";
+        document.getElementById("passwordSection").style.display = "block";
+        document.getElementById("btnCopy").disabled = true;
+        document.getElementById("statusBar").innerText = "No password found for: " + selectedNetwork;
+        document.getElementById("statusBar").className = "status-bar";
+    }
+}
+
+function copyPassword() {
+    if (!currentPassword) return;
+
+    var shell = new ActiveXObject("WScript.Shell");
+    shell.Run("cmd /c echo " + currentPassword + "| clip", 0, true);
+
+    document.getElementById("statusBar").innerText = "Password copied to clipboard!";
+    document.getElementById("statusBar").className = "status-bar success";
+}
+
+function connectNetwork() {
+    if (!selectedNetwork) return;
+
+    document.getElementById("statusBar").innerText = "Connecting to " + selectedNetwork + "...";
+    document.getElementById("statusBar").className = "status-bar";
+
+    var output = runCommand('netsh wlan connect name="' + selectedNetwork + '"');
+
+    if (output.indexOf("successfully") > -1) {
+        document.getElementById("statusBar").innerText = "Connected to " + selectedNetwork;
+        document.getElementById("statusBar").className = "status-bar success";
+    } else {
+        document.getElementById("statusBar").innerText = "Connection failed. Password may be required.";
+        document.getElementById("statusBar").className = "status-bar error";
+    }
+}
+
+function disconnectNetwork() {
+    document.getElementById("statusBar").innerText = "Disconnecting...";
+    document.getElementById("statusBar").className = "status-bar";
+
+    var output = runCommand("netsh wlan disconnect");
+
+    if (output.indexOf("successfully") > -1) {
+        document.getElementById("statusBar").innerText = "Disconnected from WiFi";
+        document.getElementById("statusBar").className = "status-bar success";
+    } else {
+        document.getElementById("statusBar").innerText = "No active WiFi connection";
+        document.getElementById("statusBar").className = "status-bar";
+    }
+}
+
+function forgetNetwork() {
+    if (!selectedNetwork) return;
+
+    var confirm = window.confirm("Forget network '" + selectedNetwork + "'?\n\nThis will remove it from your saved networks.");
+    if (!confirm) return;
+
+    document.getElementById("statusBar").innerText = "Forgetting " + selectedNetwork + "...";
+    document.getElementById("statusBar").className = "status-bar";
+
+    var output = runCommand('netsh wlan delete profile name="' + selectedNetwork + '"');
+
+    if (output.indexOf("successfully") > -1) {
+        document.getElementById("statusBar").innerText = "Forgotten: " + selectedNetwork;
+        document.getElementById("statusBar").className = "status-bar success";
+        refreshNetworks();
+    } else {
+        document.getElementById("statusBar").innerText = "Failed to forget network";
+        document.getElementById("statusBar").className = "status-bar error";
+    }
+}
+
+function escapeHtml(text) {
+    var div = document.createElement("div");
+    div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
+}
+
+// Auto-load on launch
+window.onload = function() {
+    refreshNetworks();
+};
+</script>
+</body>
+</html>
