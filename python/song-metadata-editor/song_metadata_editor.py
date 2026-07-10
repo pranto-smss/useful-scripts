@@ -126,6 +126,40 @@ def clean_filename(filename):
     name = re.sub(r"\s+", " ", name).strip()
     return name
 
+def sanitize_filename(name):
+    """Remove characters that are illegal in Windows filenames."""
+    name = re.sub(r'[\\/:*?"<>|]', "", name)
+    return name.strip()
+
+def unique_filepath(folder, name, ext):
+    """Return a unique filepath, appending (1), (2), etc. if needed."""
+    candidate = os.path.join(folder, f"{name}{ext}")
+    if not os.path.exists(candidate):
+        return candidate
+    n = 1
+    while os.path.exists(os.path.join(folder, f"{name} ({n}){ext}")):
+        n += 1
+    return os.path.join(folder, f"{name} ({n}){ext}")
+
+def rename_file(old_path, metadata):
+    """Rename file to 'Artist - Title.ext'. Returns new path or old path on failure."""
+    artist = sanitize_filename(metadata.get("artist", "Unknown"))
+    title = sanitize_filename(metadata.get("title", "Unknown"))
+    if not artist or not title:
+        return old_path
+
+    folder = os.path.dirname(old_path)
+    ext = os.path.splitext(old_path)[1]
+    new_name = f"{artist} - {title}"
+    new_path = unique_filepath(folder, new_name, ext)
+
+    try:
+        os.rename(old_path, new_path)
+        return new_path
+    except OSError as e:
+        print(f"  [!] Rename failed: {e}")
+        return old_path
+
 # ===========================================================================
 # DISPLAY
 # ===========================================================================
@@ -433,14 +467,14 @@ def process_song(filepath, index, total):
             choice = input("  Enter a different search term, or 'skip': ").strip()
             if choice.lower() == "skip":
                 print(f"  Skipped: {filename}")
-                return False
+                return False, filepath
             if choice:
                 query = choice
                 print(f"  Searching for \"{query}\"...")
                 continue
             print("  Empty input. Skipping.")
             print(f"  Skipped: {filename}")
-            return False
+            return False, filepath
 
         # Show results
         show_results(results)
@@ -448,7 +482,7 @@ def process_song(filepath, index, total):
 
         if action == "skip":
             print(f"  Skipped: {filename}")
-            return False
+            return False, filepath
         elif action == "custom":
             query = value
             print(f"  Searching for \"{query}\"...")
@@ -477,10 +511,15 @@ def process_song(filepath, index, total):
         year = metadata.get("year", "")
         extra = f" ({album}, {year})" if album else ""
         print(f"  Written: {artist} - {title}{extra}")
-        return True
+
+        # Rename file
+        new_path = rename_file(filepath, metadata)
+        if new_path != filepath:
+            print(f"  Renamed: {os.path.basename(new_path)}")
+        return True, new_path
     except Exception as e:
         print(f"  [!] Failed to write tags: {e}")
-        return False
+        return False, filepath
 
 # ===========================================================================
 # MAIN
@@ -526,7 +565,8 @@ def main():
 
     try:
         for i, filepath in enumerate(files, 1):
-            success = process_song(filepath, i, len(files))
+            success, new_path = process_song(filepath, i, len(files))
+            files[i - 1] = new_path
             if success:
                 updated += 1
             else:
