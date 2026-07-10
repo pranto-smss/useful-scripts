@@ -540,5 +540,7 @@ def main():
         print(f" {skipped} skipped.", end="")
     print()
 
+    input("\nPress Enter to exit...")
+
 if __name__ == "__main__":
     main()
