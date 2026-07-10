@@ -12,7 +12,7 @@
     Then just answer the questions on screen.
 #>
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 # ===========================================================================
 # HELPERS
