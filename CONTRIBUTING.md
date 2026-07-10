@@ -9,8 +9,8 @@ Welcome! 🎉 We're excited you're here. This repo exists because people like yo
 1. **Fork** this repository.
 2. **Create a branch**: `git checkout -b add/my-script-name`
 3. **Add your script** in the right language folder (e.g. `python/`, `javascript/`, `bash/`).
-   - If your script needs its own assets (config files, images, etc.), give it **its own subdirectory** (e.g. `python/my-script/`).
-   - If it's a single file, it can live directly in the language folder.
+   - Give it **its own subdirectory** (e.g. `python/my-script/`). Every script gets a folder — this is where the sub-README lives.
+   - Single-file scripts still go in their own folder (e.g. `python/my-script/my-script.py`).
 4. **Add a comment header** at the top of your script:
    ```javascript
    // -------------------------------------------------
