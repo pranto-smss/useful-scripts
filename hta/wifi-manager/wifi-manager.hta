@@ -16,8 +16,8 @@
     SYSMENU="yes"
     VERSION="1.0"
     SCROLL="no"
-    WIDTH="540"
-    HEIGHT="960"
+    WIDTH="640"
+    HEIGHT="480"
 />
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -40,6 +40,7 @@
         width: 100%;
         margin-bottom: 12px;
         border-spacing: 6px;
+        table-layout: fixed;
     }
     .toolbar-row {
         display: table-row;
@@ -445,7 +446,7 @@ function escapeHtml(text) {
 }
 
 window.onload = function() {
-    window.resizeTo(540, 960);
+    window.resizeTo(640, 480);
     refreshNetworks();
 };
 </script>
