@@ -5,10 +5,9 @@
 
 Option Explicit
 
-Dim objShell, objFSO, objWMI, colProfiles
+Dim objShell, objFSO
 Dim strOutput, strProfileName, strPassword, strAuth
-Dim strCmd, objExec, strLine, arrLines, i
-Dim strFilePath, objFile
+Dim i, objFile
 
 Set objShell = CreateObject("WScript.Shell")
 Set objFSO = CreateObject("Scripting.FileSystemObject")
@@ -104,10 +103,9 @@ Next
 ' Show results in message box
 MsgBox strOutput, 64, "WiFi Password Viewer"
 
-' Also save to Desktop
-Dim strDesktop, strSavePath
-strDesktop = objShell.SpecialFolders("Desktop")
-strSavePath = strDesktop & "\wifi-passwords.txt"
+' Save to script folder
+Dim strSavePath
+strSavePath = objFSO.GetParentFolderName(WScript.ScriptFullName) & "\wifi-passwords.txt"
 
 Set objFile = objFSO.CreateTextFile(strSavePath, True)
 objFile.Write strOutput
@@ -120,17 +118,22 @@ Set objShell = Nothing
 Set objFSO = Nothing
 
 ' ============================================================
-' Helper: Run a command and return its output
+' Helper: Run a command silently via hidden window + temp file
 ' ============================================================
 Function RunCommand(cmd)
-    Dim objExec, strOutput, strChar
-    Set objExec = objShell.Exec("cmd /c " & cmd)
-    strOutput = ""
-
-    Do While Not objExec.StdOut.AtEndOfStream
-        strChar = objExec.StdOut.Read(1)
-        strOutput = strOutput & strChar
-    Loop
-
+    Dim strTemp, strCommand
+    strTemp = objShell.ExpandEnvironmentStrings("%TEMP%") & "\~wifi_tmp.txt"
+    strCommand = "cmd.exe /c " & cmd & " > """ & strTemp & """ 2>&1"
+    objShell.Run strCommand, 0, True
+    Dim strOutput
+    If objFSO.FileExists(strTemp) Then
+        Dim objTmpFile
+        Set objTmpFile = objFSO.OpenTextFile(strTemp, 1)
+        strOutput = objTmpFile.ReadAll
+        objTmpFile.Close
+        objFSO.DeleteFile strTemp, True
+    Else
+        strOutput = ""
+    End If
     RunCommand = strOutput
 End Function

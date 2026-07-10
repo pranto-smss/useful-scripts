@@ -10,7 +10,7 @@ wifi-password-viewer.vbs
 
 That's it. A message box pops up with all your saved WiFi names and passwords.
 
-A copy is also saved to your Desktop as `wifi-passwords.txt`.
+A copy is also saved to the script folder as `wifi-passwords.txt`.
 
 ## What it shows
 
