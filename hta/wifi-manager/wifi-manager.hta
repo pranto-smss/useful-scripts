@@ -175,10 +175,15 @@ var currentPassword = "";
 
 function runCommand(cmd) {
     var shell = new ActiveXObject("WScript.Shell");
-    var exec = shell.Exec("cmd /c " + cmd);
+    var fso = new ActiveXObject("Scripting.FileSystemObject");
+    var tmpFile = shell.ExpandEnvironmentStrings("%TEMP%") + "\\~wifi_mgr_tmp.txt";
+    shell.Run("cmd.exe /c " + cmd + ' > "' + tmpFile + '" 2>&1', 0, true);
     var output = "";
-    while (!exec.StdOut.AtEndOfStream) {
-        output += exec.StdOut.Read(1);
+    if (fso.FileExists(tmpFile)) {
+        var f = fso.OpenTextFile(tmpFile, 1);
+        output = f.ReadAll();
+        f.Close();
+        fso.DeleteFile(tmpFile, true);
     }
     return output;
 }
@@ -230,9 +235,12 @@ function refreshNetworks() {
 }
 
 function selectNetwork(element, name) {
-    var items = document.getElementsByClassName("network-item");
-    for (var i = 0; i < items.length; i++) {
-        items[i].className = "network-item";
+    var listDiv = document.getElementById("networkList");
+    var allDivs = listDiv.getElementsByTagName("div");
+    for (var k = 0; k < allDivs.length; k++) {
+        if (allDivs[k].className && allDivs[k].className.indexOf("network-item") > -1) {
+            allDivs[k].className = "network-item";
+        }
     }
     element.className = "network-item selected";
     selectedNetwork = name;
