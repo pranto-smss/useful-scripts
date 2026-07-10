@@ -151,7 +151,13 @@ def rename_file(old_path, metadata, dry_run=False):
 
     folder = os.path.dirname(old_path)
     ext = os.path.splitext(old_path)[1]
+    current_stem = os.path.splitext(os.path.basename(old_path))[0]
     new_name = f"{artist} - {title}"
+
+    # Skip if filename already matches
+    if current_stem == new_name:
+        return old_path
+
     new_path = unique_filepath(folder, new_name, ext)
 
     if dry_run:
@@ -716,16 +722,16 @@ def process_song(filepath, index, total, dry_run=False, backup=False, auto=False
 
         # Fetch and embed album art
         if not no_art:
+            print(f"  [{index}/{total}] Fetching album art...", end="", flush=True)
+            art_data = fetch_album_art(metadata.get("release_mbid", ""))
             bar_len = 20
             filled = int(bar_len * index / total)
             bar = "=" * filled + ">" + " " * (bar_len - filled - 1)
-            print(f"  [{bar}] {index}/{total} Fetching album art...")
-            art_data = fetch_album_art(metadata.get("release_mbid", ""))
             if art_data:
                 write_art(filepath, art_data)
-                print(f"  Album art embedded.")
+                print(f"\r  [{bar}] {index}/{total} Album art embedded.  ")
             else:
-                print(f"  No album art found.")
+                print(f"\r  [{bar}] {index}/{total} No album art found.   ")
 
         # Rename file
         new_path = rename_file(filepath, metadata)
