@@ -53,7 +53,6 @@
         font-size: 12px;
         font-weight: 500;
         cursor: pointer;
-        transition: all 0.2s;
     }
     .btn-primary { background: #00d4ff; color: #1a1a2e; }
     .btn-primary:hover { background: #00b8d4; }
@@ -61,13 +60,11 @@
     .btn-success:hover { background: #00c853; }
     .btn-danger { background: #ff5252; color: #fff; }
     .btn-danger:hover { background: #ff1744; }
-    .btn-secondary { background: #444; color: #e0e0e0; }
-    .btn-secondary:hover { background: #555; }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .network-list {
         border: 1px solid #333;
         border-radius: 5px;
-        height: 280px;
+        height: 320px;
         overflow-y: auto;
         background: #0f0f23;
     }
@@ -75,43 +72,71 @@
         padding: 10px 12px;
         border-bottom: 1px solid #222;
         cursor: pointer;
-        transition: background 0.15s;
     }
     .network-item:hover { background: #1a1a3e; }
-    .network-item.selected { background: #00d4ff22; border-left: 3px solid #00d4ff; }
+    .network-item.selected { background: #00d4ff15; border-left: 3px solid #00d4ff; padding-left: 9px; }
+    .network-header { display: table; width: 100%; }
     .network-name {
         font-weight: 600;
         font-size: 13px;
         color: #fff;
+        display: table-cell;
     }
+    .network-badge {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        display: table-cell;
+        text-align: right;
+        vertical-align: middle;
+    }
+    .badge-connected { background: #00e67633; color: #00e676; }
     .network-auth {
         font-size: 11px;
         color: #888;
         margin-top: 2px;
     }
-    .password-section {
-        margin-top: 12px;
-        padding: 12px;
-        border: 1px solid #333;
-        border-radius: 5px;
-        background: #0f0f23;
+    .network-password {
+        margin-top: 8px;
+        padding: 8px 10px;
+        background: #16213e;
+        border-radius: 4px;
         display: none;
     }
+    .password-row { display: table; width: 100%; }
     .password-label {
-        font-size: 11px;
+        font-size: 10px;
         color: #888;
         text-transform: uppercase;
         letter-spacing: 1px;
-        margin-bottom: 4px;
+        margin-bottom: 3px;
     }
     .password-value {
         font-family: 'Consolas', monospace;
-        font-size: 16px;
+        font-size: 14px;
         color: #00e676;
         letter-spacing: 1px;
         word-break: break-all;
-        min-height: 24px;
+        display: table-cell;
     }
+    .password-copy {
+        font-size: 11px;
+        color: #00d4ff;
+        cursor: pointer;
+        display: table-cell;
+        text-align: right;
+        vertical-align: middle;
+        white-space: nowrap;
+        padding-left: 10px;
+    }
+    .password-copy:hover { text-decoration: underline; }
+    .password-forget {
+        margin-top: 6px;
+        font-size: 11px;
+        color: #ff5252;
+        cursor: pointer;
+    }
+    .password-forget:hover { text-decoration: underline; }
     .status-bar {
         margin-top: 10px;
         padding: 6px 10px;
@@ -134,44 +159,30 @@
     <div class="toolbar">
         <div class="toolbar-row">
             <div class="toolbar-cell">
-                <button class="btn-primary" onclick="refreshNetworks()">Refresh List</button>
+                <button class="btn-primary" onclick="refreshNetworks()">Refresh</button>
             </div>
             <div class="toolbar-cell">
-                <button class="btn-success" id="btnShowPassword" onclick="showPassword()" disabled>Show Password</button>
+                <button class="btn-success" id="btnShowPassword" onclick="togglePassword()" disabled>Show Password</button>
             </div>
             <div class="toolbar-cell">
-                <button class="btn-secondary" id="btnCopy" onclick="copyPassword()" disabled>Copy to Clipboard</button>
-            </div>
-        </div>
-        <div class="toolbar-row">
-            <div class="toolbar-cell">
-                <button class="btn-success" id="btnConnect" onclick="connectNetwork()" disabled>Connect</button>
-            </div>
-            <div class="toolbar-cell">
-                <button class="btn-danger" id="btnDisconnect" onclick="disconnectNetwork()" disabled>Disconnect</button>
-            </div>
-            <div class="toolbar-cell">
-                <button class="btn-secondary" id="btnForget" onclick="forgetNetwork()" disabled>Forget Network</button>
+                <button class="btn-success" id="btnConnect" onclick="toggleConnect()" disabled>Connect</button>
             </div>
         </div>
     </div>
 
     <div class="network-list scrollbar" id="networkList">
         <div style="padding: 20px; text-align: center; color: #666;">
-            Click "Refresh List" to load saved WiFi networks...
+            Click "Refresh" to load saved WiFi networks...
         </div>
-    </div>
-
-    <div class="password-section" id="passwordSection">
-        <div class="password-label">Password</div>
-        <div class="password-value" id="passwordValue">---</div>
     </div>
 
     <div class="status-bar" id="statusBar">Ready</div>
 
 <script language="JavaScript">
 var selectedNetwork = "";
-var currentPassword = "";
+var passwordVisible = false;
+var connectedSSID = "";
+var networkData = [];
 
 function runCommand(cmd) {
     var shell = new ActiveXObject("WScript.Shell");
@@ -188,9 +199,24 @@ function runCommand(cmd) {
     return output;
 }
 
+function getConnectedSSID() {
+    var output = runCommand("netsh wlan show interfaces");
+    var lines = output.split("\r\n");
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].replace(/^\s+/, "");
+        if (line.indexOf("SSID") > -1 && line.indexOf("BSSID") === -1 && line.indexOf(":") > -1) {
+            var val = line.split(":")[1].replace(/^\s+/, "").replace(/\s+$/, "");
+            if (val !== "") return val;
+        }
+    }
+    return "";
+}
+
 function refreshNetworks() {
     document.getElementById("statusBar").innerText = "Loading networks...";
     document.getElementById("statusBar").className = "status-bar";
+
+    connectedSSID = getConnectedSSID();
 
     var output = runCommand("netsh wlan show profiles");
     var lines = output.split("\r\n");
@@ -208,53 +234,98 @@ function refreshNetworks() {
         }
     }
 
-    var listHtml = "";
-    if (networks.length === 0) {
-        listHtml = '<div style="padding: 20px; text-align: center; color: #666;">No saved WiFi networks found.</div>';
-    } else {
-        for (var j = 0; j < networks.length; j++) {
-            listHtml += '<div class="network-item" onclick="selectNetwork(this, \'' + escapeHtml(networks[j]) + '\')">';
-            listHtml += '<div class="network-name">' + escapeHtml(networks[j]) + '</div>';
-            listHtml += '<div class="network-auth">Saved network</div>';
-            listHtml += '</div>';
-        }
-    }
+    networkData = networks;
+    renderNetworks();
 
-    document.getElementById("networkList").innerHTML = listHtml;
     document.getElementById("statusBar").innerText = "Found " + networks.length + " saved network(s)";
     document.getElementById("statusBar").className = "status-bar success";
 
-    document.getElementById("passwordSection").style.display = "none";
-    document.getElementById("btnShowPassword").disabled = true;
-    document.getElementById("btnCopy").disabled = true;
-    document.getElementById("btnConnect").disabled = true;
-    document.getElementById("btnDisconnect").disabled = false;
-    document.getElementById("btnForget").disabled = true;
     selectedNetwork = "";
-    currentPassword = "";
+    passwordVisible = false;
+    updateButtons();
+}
+
+function renderNetworks() {
+    var listHtml = "";
+    if (networkData.length === 0) {
+        listHtml = '<div style="padding: 20px; text-align: center; color: #666;">No saved WiFi networks found.</div>';
+    } else {
+        for (var j = 0; j < networkData.length; j++) {
+            var name = networkData[j];
+            var isSelected = (name === selectedNetwork);
+            var cls = isSelected ? "network-item selected" : "network-item";
+
+            listHtml += '<div class="' + cls + '" onclick="selectNetwork(this, \'' + escapeHtml(name) + '\')">';
+            listHtml += '<div class="network-header">';
+            listHtml += '<div class="network-name">' + escapeHtml(name) + '</div>';
+            if (name === connectedSSID) {
+                listHtml += '<div class="network-badge badge-connected">Connected</div>';
+            }
+            listHtml += '</div>';
+            listHtml += '<div class="network-auth">Saved network</div>';
+
+            if (isSelected && passwordVisible) {
+                listHtml += '<div class="network-password" id="pwSection">';
+                listHtml += '<div class="password-label">Password</div>';
+                listHtml += '<div class="password-row">';
+                listHtml += '<div class="password-value" id="passwordValue">Loading...</div>';
+                listHtml += '<div class="password-copy" onclick="event.stopPropagation(); copyPassword()">Copy</div>';
+                listHtml += '</div>';
+                listHtml += '<div class="password-forget" onclick="event.stopPropagation(); forgetNetwork()">Forget this network</div>';
+                listHtml += '</div>';
+            }
+
+            listHtml += '</div>';
+        }
+    }
+    document.getElementById("networkList").innerHTML = listHtml;
 }
 
 function selectNetwork(element, name) {
-    var listDiv = document.getElementById("networkList");
-    var allDivs = listDiv.getElementsByTagName("div");
-    for (var k = 0; k < allDivs.length; k++) {
-        if (allDivs[k].className && allDivs[k].className.indexOf("network-item") > -1) {
-            allDivs[k].className = "network-item";
-        }
-    }
-    element.className = "network-item selected";
     selectedNetwork = name;
+    passwordVisible = false;
+    renderNetworks();
+    updateButtons();
 
-    document.getElementById("btnShowPassword").disabled = false;
-    document.getElementById("btnConnect").disabled = false;
-    document.getElementById("btnForget").disabled = false;
-    document.getElementById("passwordSection").style.display = "none";
     document.getElementById("statusBar").innerText = "Selected: " + name;
     document.getElementById("statusBar").className = "status-bar";
 }
 
-function showPassword() {
+function updateButtons() {
+    var hasSelection = (selectedNetwork !== "");
+    document.getElementById("btnShowPassword").disabled = !hasSelection;
+    document.getElementById("btnConnect").disabled = !hasSelection;
+
+    if (hasSelection) {
+        if (passwordVisible) {
+            document.getElementById("btnShowPassword").innerText = "Hide Password";
+        } else {
+            document.getElementById("btnShowPassword").innerText = "Show Password";
+        }
+
+        if (selectedNetwork === connectedSSID) {
+            document.getElementById("btnConnect").innerText = "Disconnect";
+            document.getElementById("btnConnect").className = "btn-danger";
+        } else {
+            document.getElementById("btnConnect").innerText = "Connect";
+            document.getElementById("btnConnect").className = "btn-success";
+        }
+    } else {
+        document.getElementById("btnShowPassword").innerText = "Show Password";
+        document.getElementById("btnConnect").innerText = "Connect";
+        document.getElementById("btnConnect").className = "btn-success";
+    }
+}
+
+function togglePassword() {
     if (!selectedNetwork) return;
+
+    if (passwordVisible) {
+        passwordVisible = false;
+        renderNetworks();
+        updateButtons();
+        return;
+    }
 
     document.getElementById("statusBar").innerText = "Loading password...";
     document.getElementById("statusBar").className = "status-bar";
@@ -272,70 +343,81 @@ function showPassword() {
         }
     }
 
-    if (password) {
-        currentPassword = password;
-        document.getElementById("passwordValue").innerText = password;
-        document.getElementById("passwordSection").style.display = "block";
-        document.getElementById("btnCopy").disabled = false;
-        document.getElementById("statusBar").innerText = "Password loaded for: " + selectedNetwork;
-        document.getElementById("statusBar").className = "status-bar success";
-    } else {
-        currentPassword = "";
-        document.getElementById("passwordValue").innerText = "(open network or no password saved)";
-        document.getElementById("passwordSection").style.display = "block";
-        document.getElementById("btnCopy").disabled = true;
-        document.getElementById("statusBar").innerText = "No password found for: " + selectedNetwork;
-        document.getElementById("statusBar").className = "status-bar";
+    passwordVisible = true;
+    renderNetworks();
+    updateButtons();
+
+    var pwEl = document.getElementById("passwordValue");
+    if (pwEl) {
+        if (password) {
+            pwEl.innerText = password;
+            document.getElementById("statusBar").innerText = "Password loaded for: " + selectedNetwork;
+            document.getElementById("statusBar").className = "status-bar success";
+        } else {
+            pwEl.innerText = "(open network or no password saved)";
+            document.getElementById("statusBar").innerText = "No password found for: " + selectedNetwork;
+            document.getElementById("statusBar").className = "status-bar";
+        }
     }
 }
 
 function copyPassword() {
-    if (!currentPassword) return;
+    var pwEl = document.getElementById("passwordValue");
+    if (!pwEl) return;
+    var pw = pwEl.innerText;
+    if (!pw || pw.indexOf("(") === 0) return;
 
     var shell = new ActiveXObject("WScript.Shell");
-    shell.Run("cmd /c echo " + currentPassword + "| clip", 0, true);
+    shell.Run("cmd.exe /c echo " + pw + "| clip", 0, true);
 
-    document.getElementById("statusBar").innerText = "Password copied to clipboard!";
-    document.getElementById("statusBar").className = "status-bar success";
+    var copyEl = document.getElementById("networkList");
+    var statusEl = document.getElementById("statusBar");
+    statusEl.innerText = "Password copied!";
+    statusEl.className = "status-bar success";
 }
 
-function connectNetwork() {
+function toggleConnect() {
     if (!selectedNetwork) return;
 
-    document.getElementById("statusBar").innerText = "Connecting to " + selectedNetwork + "...";
-    document.getElementById("statusBar").className = "status-bar";
-
-    var output = runCommand('netsh wlan connect name="' + selectedNetwork + '"');
-
-    if (output.indexOf("successfully") > -1) {
-        document.getElementById("statusBar").innerText = "Connected to " + selectedNetwork;
-        document.getElementById("statusBar").className = "status-bar success";
-    } else {
-        document.getElementById("statusBar").innerText = "Connection failed. Password may be required.";
-        document.getElementById("statusBar").className = "status-bar error";
-    }
-}
-
-function disconnectNetwork() {
-    document.getElementById("statusBar").innerText = "Disconnecting...";
-    document.getElementById("statusBar").className = "status-bar";
-
-    var output = runCommand("netsh wlan disconnect");
-
-    if (output.indexOf("successfully") > -1) {
-        document.getElementById("statusBar").innerText = "Disconnected from WiFi";
-        document.getElementById("statusBar").className = "status-bar success";
-    } else {
-        document.getElementById("statusBar").innerText = "No active WiFi connection";
+    if (selectedNetwork === connectedSSID) {
+        document.getElementById("statusBar").innerText = "Disconnecting...";
         document.getElementById("statusBar").className = "status-bar";
+
+        var output = runCommand("netsh wlan disconnect");
+
+        if (output.indexOf("successfully") > -1) {
+            connectedSSID = "";
+            document.getElementById("statusBar").innerText = "Disconnected from WiFi";
+            document.getElementById("statusBar").className = "status-bar success";
+        } else {
+            document.getElementById("statusBar").innerText = "No active WiFi connection";
+            document.getElementById("statusBar").className = "status-bar";
+        }
+    } else {
+        document.getElementById("statusBar").innerText = "Connecting to " + selectedNetwork + "...";
+        document.getElementById("statusBar").className = "status-bar";
+
+        var output = runCommand('netsh wlan connect name="' + selectedNetwork + '"');
+
+        if (output.indexOf("successfully") > -1) {
+            connectedSSID = selectedNetwork;
+            document.getElementById("statusBar").innerText = "Connected to " + selectedNetwork;
+            document.getElementById("statusBar").className = "status-bar success";
+        } else {
+            document.getElementById("statusBar").innerText = "Connection failed. Password may be required.";
+            document.getElementById("statusBar").className = "status-bar error";
+        }
     }
+
+    renderNetworks();
+    updateButtons();
 }
 
 function forgetNetwork() {
     if (!selectedNetwork) return;
 
-    var confirm = window.confirm("Forget network '" + selectedNetwork + "'?\n\nThis will remove it from your saved networks.");
-    if (!confirm) return;
+    var answer = window.confirm("Forget network '" + selectedNetwork + "'?\n\nThis will remove it from your saved networks.");
+    if (!answer) return;
 
     document.getElementById("statusBar").innerText = "Forgetting " + selectedNetwork + "...";
     document.getElementById("statusBar").className = "status-bar";
@@ -345,6 +427,8 @@ function forgetNetwork() {
     if (output.indexOf("successfully") > -1) {
         document.getElementById("statusBar").innerText = "Forgotten: " + selectedNetwork;
         document.getElementById("statusBar").className = "status-bar success";
+        selectedNetwork = "";
+        passwordVisible = false;
         refreshNetworks();
     } else {
         document.getElementById("statusBar").innerText = "Failed to forget network";
@@ -358,7 +442,6 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Auto-load on launch
 window.onload = function() {
     refreshNetworks();
 };

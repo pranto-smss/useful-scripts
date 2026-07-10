@@ -4,10 +4,10 @@ A GUI WiFi manager for Windows. View, connect, disconnect, and forget saved WiFi
 
 ## Features
 
-- **Network List** — Browse all saved WiFi profiles in one place
-- **Show Password** — Reveal the stored password for any network
-- **Copy to Clipboard** — One-click password copy
-- **Connect / Disconnect** — Toggle WiFi connection from the GUI
+- **Network List** — Browse all saved WiFi profiles with a connected badge
+- **Show / Hide Password** — Toggle password visibility inline
+- **Copy to Clipboard** — One-click copy next to the password
+- **Connect / Disconnect** — Toggle WiFi connection (button auto-updates based on state)
 - **Forget Network** — Remove old networks with confirmation prompt
 
 ## Requirements
@@ -27,16 +27,17 @@ A GUI WiFi manager for Windows. View, connect, disconnect, and forget saved WiFi
 wifi-manager.hta
 ```
 
-## Screenshot
+## UI Layout
 
-Dark-themed GUI with:
-- Toolbar buttons at top (Refresh, Show Password, Copy, Connect, Disconnect, Forget)
-- Scrollable network list in the center
-- Password display panel at the bottom
-- Status bar with feedback messages
+- **Toolbar** — 3 buttons: Refresh, Show/Hide Password, Connect/Disconnect
+- **Network list** — Scrollable list with "Connected" badge on active network
+- **Inline password** — Expands below the selected network with Copy link and Forget link
+- **Status bar** — Feedback messages at the bottom
 
 ## Notes
 
 - Passwords are shown only on explicit click (preview-before-act)
+- "Connected" badge shows which network you're currently on
+- Button text and color update automatically (Connect turns to Disconnect when connected)
 - No data is stored or transmitted — everything runs locally via `netsh`
 - Safe for personal use; do not use on networks you do not own
