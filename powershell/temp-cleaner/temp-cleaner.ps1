@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Interactive temp file cleaner. Preview before deleting — nothing touched until you confirm.
+    Interactive temp file cleaner. Preview before deleting -- nothing touched until you confirm.
 
 .DESCRIPTION
     Cleans Windows temp folders, caches, and crash dumps with an age-based filter.
@@ -67,9 +67,11 @@ function Get-TargetFiles($path, $daysOld) {
         $files = @(Get-ChildItem -Path $path -File -Recurse -Force -ErrorAction Stop |
             Where-Object { $_.LastWriteTime -lt $cutoff })
     } catch {
-        # Recursive scan failed — collect what we can from subfolders one at a time
         $folders = @($path)
-        try { $folders += @(Get-ChildItem -Path $path -Directory -Force -ErrorAction Stop | Select-Object -ExpandProperty FullName) } catch {}
+        try {
+            $folders += @(Get-ChildItem -Path $path -Directory -Force -ErrorAction Stop |
+                Select-Object -ExpandProperty FullName)
+        } catch {}
         foreach ($folder in $folders) {
             try {
                 $files += @(Get-ChildItem -Path $folder -File -Force -ErrorAction Stop |
@@ -87,7 +89,10 @@ function Get-AllFiles($path) {
         $files = @(Get-ChildItem -Path $path -File -Recurse -Force -ErrorAction Stop)
     } catch {
         $folders = @($path)
-        try { $folders += @(Get-ChildItem -Path $path -Directory -Force -ErrorAction Stop | Select-Object -ExpandProperty FullName) } catch {}
+        try {
+            $folders += @(Get-ChildItem -Path $path -Directory -Force -ErrorAction Stop |
+                Select-Object -ExpandProperty FullName)
+        } catch {}
         foreach ($folder in $folders) {
             try { $files += @(Get-ChildItem -Path $folder -File -Force -ErrorAction Stop) } catch {}
         }
@@ -98,7 +103,7 @@ function Get-AllFiles($path) {
 function Get-CleanupTargets($mode) {
     $targets = @()
 
-    # User temp — always included
+    # User temp -- always included
     $targets += [PSCustomObject]@{
         Name = "User Temp"
         Path = $env:TEMP
@@ -195,15 +200,15 @@ Write-Step "Scanning..."
 
 foreach ($target in $targets) {
     if (-not (Test-Path $target.Path)) {
-        Write-Host "  SKIP (not found): $($target.Name) — $($target.Path)" -ForegroundColor DarkGray
+        Write-Host "  SKIP (not found): $($target.Name) -- $($target.Path)" -ForegroundColor DarkGray
         continue
     }
 
-    # Show total file count first so user knows the folder isn't empty
+    # Show total file count so user knows the folder is not empty
     $allFiles = @(Get-AllFiles -path $target.Path)
     $allCount = $allFiles.Count
     $allSize = ($allFiles | Measure-Object -Property Length -Sum).Sum
-    Write-Host "  $($target.Name): $allCount file(s) total — $(Format-FileSize $allSize)" -ForegroundColor DarkGray
+    Write-Host "  $($target.Name): $allCount file(s) total -- $(Format-FileSize $allSize)" -ForegroundColor DarkGray
 
     $files = Get-TargetFiles -path $target.Path -daysOld $daysOld
     if ($target.Filter) {
@@ -223,7 +228,7 @@ foreach ($target in $targets) {
 
     $sizeStr = Format-FileSize $totalSize
     if ($count -gt 0) {
-        Write-Host "    -> $count file(s) older than $daysOld day(s) — $sizeStr" -ForegroundColor Green
+        Write-Host "    -> $count file(s) older than $daysOld day(s) -- $sizeStr" -ForegroundColor Green
     } else {
         Write-Host "    -> all files are newer than $daysOld day(s)" -ForegroundColor DarkGray
     }
@@ -304,7 +309,7 @@ foreach ($result in $scanResults) {
         }
     }
 
-    # Remove empty directories left behind (top-level only to avoid recursive permission issues)
+    # Remove empty directories left behind (top-level only)
     try {
         $dirs = Get-ChildItem -Path $result.Path -Directory -Force -ErrorAction Stop |
             Where-Object { (Get-ChildItem $_.FullName -Force -ErrorAction SilentlyContinue).Count -eq 0 }
