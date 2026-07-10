@@ -716,7 +716,10 @@ def process_song(filepath, index, total, dry_run=False, backup=False, auto=False
 
         # Fetch and embed album art
         if not no_art:
-            print(f"  [{index}/{total}] Fetching album art...")
+            bar_len = 20
+            filled = int(bar_len * index / total)
+            bar = "=" * filled + ">" + " " * (bar_len - filled - 1)
+            print(f"  [{bar}] {index}/{total} Fetching album art...")
             art_data = fetch_album_art(metadata.get("release_mbid", ""))
             if art_data:
                 write_art(filepath, art_data)
