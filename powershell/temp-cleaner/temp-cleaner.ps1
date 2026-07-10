@@ -1,3 +1,11 @@
+# -------------------------------------------------
+# Script Name:   Temp Cleaner
+# Language:      PowerShell
+# Description:   Clean Windows temp files, caches, and crash dumps with preview and age filter
+# Usage:         ./temp-cleaner.ps1
+# Author:        Pranto, SMSS
+# -------------------------------------------------
+
 <#
 .SYNOPSIS
     Interactive temp file cleaner. Preview before deleting -- nothing touched until you confirm.

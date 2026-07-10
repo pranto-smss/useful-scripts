@@ -1,7 +1,10 @@
-' WiFi Password Viewer
-' Shows all saved WiFi network names and passwords.
-' Zero dependencies -- uses built-in netsh and VBScript.
-' Just double-click to run.
+' -------------------------------------------------
+' Script Name:   WiFi Password Viewer
+' Language:      VBScript
+' Description:   Show all saved WiFi network names and passwords
+' Usage:         wifi-password-viewer.vbs
+' Author:        Pranto, SMSS
+' -------------------------------------------------
 
 Option Explicit
 

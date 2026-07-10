@@ -1,4 +1,12 @@
-﻿<#
+﻿# -------------------------------------------------
+# Script Name:   Batch Rename
+# Language:      PowerShell
+# Description:   Interactive batch rename with find/replace, prefix, suffix, numbering, case change
+# Usage:         ./batch-rename.ps1
+# Author:        Pranto, SMSS
+# -------------------------------------------------
+
+<#
 .SYNOPSIS
     Interactive batch rename tool. Just run it — no arguments needed.
 
