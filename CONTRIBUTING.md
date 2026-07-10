@@ -27,9 +27,9 @@ Welcome! 🎉 We're excited you're here. This repo exists because people like yo
    - Any flags or options
    - Example output if helpful
 6. **Update the root README** — add your script to the "Script Directory" table in [`README.md`](README.md) with its name, language, description, and a one-liner usage example.
-6. **Commit**: `git commit -m "Add my-script-name"`
-7. **Push**: `git push origin add/my-script-name`
-8. **Open a Pull Request** on GitHub.
+7. **Commit**: `git commit -m "Add my-script-name"`
+8. **Push**: `git push origin add/my-script-name`
+9. **Open a Pull Request** on GitHub.
 
 ---
 
