@@ -64,7 +64,9 @@ function Format-FileSize($bytes) {
 function Get-FolderSize($path) {
     if (-not (Test-Path $path)) { return 0 }
     $files = Get-ChildItem -Path $path -File -Recurse -Force -ErrorAction SilentlyContinue
-    return ($files | Measure-Object -Property Length -Sum).Sum
+    $sum = ($files | Measure-Object -Property Length -Sum).Sum
+    if ($null -eq $sum) { return 0 }
+    return $sum
 }
 
 function Get-TargetFiles($path, $daysOld) {
