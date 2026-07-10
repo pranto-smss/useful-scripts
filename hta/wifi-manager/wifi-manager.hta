@@ -450,7 +450,10 @@ function escapeHtml(text) {
 }
 
 window.onload = function() {
-    window.resizeTo(540, 800);
+    var w = 540, h = 800;
+    var sw = screen.availWidth, sh = screen.availHeight;
+    window.resizeTo(w, h);
+    window.moveTo((sw - w) / 2, (sh - h) / 2);
     refreshNetworks();
 };
 </script>
