@@ -67,9 +67,30 @@ function Get-TargetFiles($path, $daysOld) {
         $files = @(Get-ChildItem -Path $path -File -Recurse -Force -ErrorAction Stop |
             Where-Object { $_.LastWriteTime -lt $cutoff })
     } catch {
-        # Recursive scan failed (permission denied on subfolders) — fall back to top-level only
-        $files = @(Get-ChildItem -Path $path -File -Force -ErrorAction SilentlyContinue |
-            Where-Object { $_.LastWriteTime -lt $cutoff })
+        # Recursive scan failed — collect what we can from subfolders one at a time
+        $folders = @($path)
+        try { $folders += @(Get-ChildItem -Path $path -Directory -Force -ErrorAction Stop | Select-Object -ExpandProperty FullName) } catch {}
+        foreach ($folder in $folders) {
+            try {
+                $files += @(Get-ChildItem -Path $folder -File -Force -ErrorAction Stop |
+                    Where-Object { $_.LastWriteTime -lt $cutoff })
+            } catch {}
+        }
+    }
+    return $files
+}
+
+function Get-AllFiles($path) {
+    if (-not (Test-Path $path)) { return @() }
+    $files = @()
+    try {
+        $files = @(Get-ChildItem -Path $path -File -Recurse -Force -ErrorAction Stop)
+    } catch {
+        $folders = @($path)
+        try { $folders += @(Get-ChildItem -Path $path -Directory -Force -ErrorAction Stop | Select-Object -ExpandProperty FullName) } catch {}
+        foreach ($folder in $folders) {
+            try { $files += @(Get-ChildItem -Path $folder -File -Force -ErrorAction Stop) } catch {}
+        }
     }
     return $files
 }
@@ -179,8 +200,10 @@ foreach ($target in $targets) {
     }
 
     # Show total file count first so user knows the folder isn't empty
-    $allCount = (Get-ChildItem -Path $target.Path -File -Recurse -Force -ErrorAction SilentlyContinue | Measure-Object).Count
-    Write-Host "  $($target.Name): $allCount file(s) total" -ForegroundColor DarkGray
+    $allFiles = @(Get-AllFiles -path $target.Path)
+    $allCount = $allFiles.Count
+    $allSize = ($allFiles | Measure-Object -Property Length -Sum).Sum
+    Write-Host "  $($target.Name): $allCount file(s) total — $(Format-FileSize $allSize)" -ForegroundColor DarkGray
 
     $files = Get-TargetFiles -path $target.Path -daysOld $daysOld
     if ($target.Filter) {
@@ -281,18 +304,14 @@ foreach ($result in $scanResults) {
         }
     }
 
-    # Remove empty directories left behind
-    $dirs = Get-ChildItem -Path $result.Path -Directory -Recurse -Force -ErrorAction SilentlyContinue |
-        Where-Object { (Get-ChildItem $_.FullName -Force -ErrorAction SilentlyContinue).Count -eq 0 } |
-        Sort-Object FullName -Descending
-
-    foreach ($dir in $dirs) {
-        try {
-            Remove-Item -LiteralPath $dir.FullName -Force -ErrorAction Stop
-        } catch {
-            # ignore
+    # Remove empty directories left behind (top-level only to avoid recursive permission issues)
+    try {
+        $dirs = Get-ChildItem -Path $result.Path -Directory -Force -ErrorAction Stop |
+            Where-Object { (Get-ChildItem $_.FullName -Force -ErrorAction SilentlyContinue).Count -eq 0 }
+        foreach ($dir in $dirs) {
+            try { Remove-Item -LiteralPath $dir.FullName -Force -ErrorAction Stop } catch {}
         }
-    }
+    } catch {}
 }
 
 # ===========================================================================
