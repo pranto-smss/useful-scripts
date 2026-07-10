@@ -8,7 +8,8 @@ A GUI WiFi manager for Windows. View, connect, disconnect, and forget saved WiFi
 - **Show / Hide Password** — Toggle password visibility inline
 - **Copy to Clipboard** — One-click copy next to the password
 - **Connect / Disconnect** — Toggle WiFi connection (button auto-updates based on state)
-- **Forget Network** — Remove old networks with confirmation prompt
+- **Forget Network** — Remove old networks with confirmation prompt (visible on select)
+- **Export All** — Save all network names + passwords to a txt file
 
 ## Requirements
 
@@ -29,9 +30,10 @@ wifi-manager.hta
 
 ## UI Layout
 
-- **Toolbar** — 3 buttons: Refresh, Show/Hide Password, Connect/Disconnect
+- **Toolbar** — 4 buttons: Refresh, Show/Hide Password, Connect/Disconnect, Export All
 - **Network list** — Scrollable list with "Connected" badge on active network
-- **Inline password** — Expands below the selected network with Copy link and Forget link
+- **Inline password** — Expands below the selected network with Copy link
+- **Forget link** — Shown whenever a network is selected
 - **Status bar** — Feedback messages at the bottom
 
 ## Notes

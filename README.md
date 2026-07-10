@@ -20,7 +20,7 @@
 | [Batch Rename](powershell/batch-rename/batch-rename.ps1) | PowerShell | **Just run it.** Picks a folder, filter, and rename operation through clean on-screen prompts — find/replace, prefix, suffix, numbering, case change, or combine them all. Shows a preview before touching anything. Undoes previous renames automatically. | `./batch-rename.ps1` |
 | [Temp Cleaner](powershell/temp-cleaner/temp-cleaner.ps1) | PowerShell | Clean Windows temp files, caches, and crash dumps. Preview before deleting, age-based filter to keep recent files, skips locked files automatically. No admin needed for user temp. | `./temp-cleaner.ps1` |
 | [WiFi Password Viewer](vbs/wifi-password-viewer/wifi-password-viewer.vbs) | VBScript | Show all saved WiFi passwords in one click. Zero dependencies -- uses built-in netsh. | `wifi-password-viewer.vbs` |
-| [WiFi Manager](hta/wifi-manager/wifi-manager.hta) | HTA | GUI WiFi manager. View, connect, disconnect, forget saved networks. Copy passwords to clipboard. | `wifi-manager.hta` |
+| [WiFi Manager](hta/wifi-manager/wifi-manager.hta) | HTA | GUI WiFi manager. View, connect, disconnect, forget saved networks. Copy/export passwords. | `wifi-manager.hta` |
 
 ---
 
