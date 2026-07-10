@@ -350,6 +350,112 @@ def write_tags(filepath, metadata):
     return False
 
 # ===========================================================================
+# COVER ART
+# ===========================================================================
+
+COVERART_BASE = "https://coverartarchive.org/release"
+
+def fetch_album_art(release_mbid):
+    """Fetch album art from Cover Art Archive. Returns raw image bytes or None."""
+    if not release_mbid:
+        return None
+    url = f"{COVERART_BASE}/{release_mbid}/front-500"
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return resp.read()
+    except urllib.error.HTTPError:
+        return None
+    except Exception:
+        return None
+
+def write_art(filepath, art_data):
+    """Embed album art into an audio file based on its format."""
+    if not art_data:
+        return False
+    ext = os.path.splitext(filepath)[1].lower()
+
+    try:
+        if ext == ".mp3":
+            return write_art_mp3(filepath, art_data)
+        elif ext == ".flac":
+            return write_art_flac(filepath, art_data)
+        elif ext == ".ogg":
+            return write_art_ogg(filepath, art_data)
+        elif ext in (".m4a", ".aac"):
+            return write_art_m4a(filepath, art_data)
+        elif ext == ".wma":
+            return write_art_wma(filepath, art_data)
+    except Exception as e:
+        print(f"  [!] Failed to embed art: {e}")
+        return False
+    return False
+
+def write_art_mp3(filepath, art_data):
+    from mutagen.id3 import ID3, APIC, ID3NoHeaderError
+    from mutagen.mp3 import MP3
+    try:
+        tags = ID3(filepath)
+    except ID3NoHeaderError:
+        tags = ID3()
+    audio = MP3(filepath)
+    mime = audio.mime[0] if audio.mime else "image/jpeg"
+    tags["APIC"] = APIC(encoding=3, mime=mime, type=3, desc="Cover", data=art_data)
+    tags.save(filepath)
+    return True
+
+def write_art_flac(filepath, art_data):
+    from mutagen.flac import FLAC, Picture
+    audio = FLAC(filepath)
+    pic = Picture()
+    pic.type = 3
+    pic.mime = "image/jpeg"
+    pic.desc = "Cover"
+    pic.data = art_data
+    audio.clear_pictures()
+    audio.add_picture(pic)
+    audio.save()
+    return True
+
+def write_art_ogg(filepath, art_data):
+    from mutagen.oggvorbis import OggVorbis
+    from mutagen.flac import Picture
+    import base64
+    audio = OggVorbis(filepath)
+    pic = Picture()
+    pic.type = 3
+    pic.mime = "image/jpeg"
+    pic.desc = "Cover"
+    pic.data = art_data
+    encoded = base64.b64encode(pic.write()).decode("ascii")
+    audio["METADATA_BLOCK_PICTURE"] = [encoded]
+    audio.save()
+    return True
+
+def write_art_m4a(filepath, art_data):
+    from mutagen.mp4 import MP4, MP4Cover
+    audio = MP4(filepath)
+    try:
+        audio.add_tags()
+    except Exception:
+        pass
+    cover = MP4Cover(art_data, imageformat=MP4Cover.FORMAT_JPEG)
+    audio.tags["covr"] = [cover]
+    audio.save()
+    return True
+
+def write_art_wma(filepath, art_data):
+    from mutagen.asf import ASF, ASFPicture
+    audio = ASF(filepath)
+    pic = ASFPicture()
+    pic.type = 3  # Cover (front)
+    pic.mime = "image/jpeg"
+    pic.data = art_data
+    audio["WM/Picture"] = [pic]
+    audio.save()
+    return True
+
+# ===========================================================================
 # METADATA EXTRACTION
 # ===========================================================================
 
@@ -363,6 +469,7 @@ def extract_metadata(recording, release=None):
         "year": "",
         "genre": "",
         "isrc": "",
+        "release_mbid": "",
     }
 
     # Artist from artist-credit
@@ -375,6 +482,7 @@ def extract_metadata(recording, release=None):
 
     if release:
         metadata["album"] = release.get("title", "")
+        metadata["release_mbid"] = release.get("id", "")
         date = release.get("date", "")
         if date:
             metadata["year"] = date[:4]
@@ -549,6 +657,8 @@ def process_song(filepath, index, total, dry_run=False, backup=False, auto=False
     # Dry-run: show what would happen
     if dry_run:
         print(f"  [dry-run] Would write: {artist} - {title}{extra}")
+        if metadata.get("release_mbid"):
+            print(f"  [dry-run] Would fetch album art from Cover Art Archive")
         new_path = rename_file(filepath, metadata, dry_run=True)
         return True, filepath
 
@@ -563,6 +673,15 @@ def process_song(filepath, index, total, dry_run=False, backup=False, auto=False
     try:
         write_tags(filepath, metadata)
         print(f"  Written: {artist} - {title}{extra}")
+
+        # Fetch and embed album art
+        print(f"  Fetching album art...")
+        art_data = fetch_album_art(metadata.get("release_mbid", ""))
+        if art_data:
+            write_art(filepath, art_data)
+            print(f"  Album art embedded.")
+        else:
+            print(f"  No album art found.")
 
         # Rename file
         new_path = rename_file(filepath, metadata)
