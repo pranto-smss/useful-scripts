@@ -432,7 +432,7 @@ function forgetNetwork() {
 
     var output = runCommand('netsh wlan delete profile name="' + selectedNetwork + '"');
 
-    if (output.indexOf("successfully") > -1) {
+    if (output.indexOf("successfully") > -1 || output.indexOf("deleted") > -1) {
         document.getElementById("statusBar").innerText = "Forgotten: " + selectedNetwork;
         document.getElementById("statusBar").className = "status-bar success";
         selectedNetwork = "";
