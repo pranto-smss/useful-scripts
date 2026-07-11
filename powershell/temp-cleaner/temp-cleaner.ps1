@@ -14,11 +14,24 @@
     Cleans Windows temp folders, caches, and crash dumps with an age-based filter.
     Shows a full preview of what would be deleted and how much space would be freed.
     Skips locked/in-use files automatically. No admin needed for user-only cleanup.
+    System/full cleanup auto-elevates via UAC when needed.
+
+.PARAMETER Mode
+    Cleanup level (1-3). If omitted, prompts interactively.
+    1 = User temp only, 2 = User + System temp, 3 = Full cleanup.
 
 .EXAMPLE
     ./temp-cleaner.ps1
     Then just answer the questions on screen.
+
+.EXAMPLE
+    ./temp-cleaner.ps1 -Mode 3
+    Runs full cleanup directly, elevating to admin if needed.
 #>
+
+param(
+    [int]$Mode = 0
+)
 
 $ErrorActionPreference = "Continue"
 
@@ -172,11 +185,15 @@ Write-Host "Nothing is deleted until you confirm a preview."
 # STEP 1: CLEANUP MODE
 # ===========================================================================
 
-Write-Step "Step 1: Choose cleanup level"
-Write-Host "1. User temp only (safe, no admin needed)"
-Write-Host "2. User + System temp (includes Windows Update cache)"
-Write-Host "3. Full cleanup (temp + thumbnails + dumps + WER)"
-$mode = [int](Read-Prompt "Choose an option" "1")
+if ($Mode -ne 0) {
+    $mode = $Mode
+} else {
+    Write-Step "Step 1: Choose cleanup level"
+    Write-Host "1. User temp only (safe, no admin needed)"
+    Write-Host "2. User + System temp (includes Windows Update cache)"
+    Write-Host "3. Full cleanup (temp + thumbnails + dumps + WER)"
+    $mode = [int](Read-Prompt "Choose an option" "1")
+}
 
 if ($mode -notin 1, 2, 3) { $mode = 1 }
 
@@ -184,8 +201,9 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 
 if ($mode -ge 2 -and -not $isAdmin) {
     Write-Host ""
-    Write-Host "System cleanup requires Administrator. Falling back to User temp only." -ForegroundColor Yellow
-    $mode = 1
+    Write-Host "System cleanup requires Administrator. Elevating..." -ForegroundColor Yellow
+    Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Mode $mode"
+    exit
 }
 
 # ===========================================================================
