@@ -8,6 +8,12 @@
 ./batch-rename.ps1
 ```
 
+Or double-click `batch-rename.bat` (no PowerShell setup required):
+
+```cmd
+batch-rename.bat
+```
+
 Then just answer the prompts:
 
 1. **Choose a folder** — graphical folder picker, type a path, or use the current folder.
